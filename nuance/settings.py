@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     
     # API Keys and Secrets
     DATURA_API_KEY: str = Field(description="Datura API key.")
-    CHUTES_API_KEY: str = Field(description="Chutes API key.")
+    NINETEEN_API_KEY: str = Field(description="Nineteen API key.")
     
     model_config = SettingsConfigDict(
         env_file=".env", 

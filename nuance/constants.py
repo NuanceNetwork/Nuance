@@ -2,7 +2,7 @@ import csv
 import json
 
 import bittensor as bt
-
+from loguru import logger
 from nuance.settings import settings
 
 SCORING_HOUR = 16
@@ -23,9 +23,9 @@ def load_verified_usernames(csv_path: str = "verified.csv") -> set:
                 if row and len(row) >= 3:
                     username = row[-1].strip().lower()
                     verified.add(username)
-        bt.logging.info(f"✅ Loaded {len(verified)} verified usernames from {csv_path}.")
+        logger.info(f"✅ Loaded {len(verified)} verified usernames from {csv_path}.")
     except Exception as e:
-        bt.logging.error(f"❌ Failed to load verified users: {e}")
+        logger.error(f"❌ Failed to load verified users: {e}")
         raise
     return verified
 
@@ -39,10 +39,10 @@ def load_prompts(file_path: str = "nuance.constitution") -> dict:
     try:
         with open(file_path, "r") as f:
             prompts = json.load(f)
-            bt.logging.info("✅ Loaded prompt templates from nuance.constitution.")
+            logger.info("✅ Loaded prompt templates from nuance.constitution.")
             return prompts
     except Exception as e:
-        bt.logging.error(f"❌ Failed to load prompts from {file_path}: {e}")
+        logger.error(f"❌ Failed to load prompts from {file_path}: {e}")
         raise
 
 PROMPTS = load_prompts()

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import bittensor as bt
 from bittensor.core.chain_data.utils import decode_metadata
+from loguru import logger
 
 
 async def get_commitments(
@@ -33,7 +34,7 @@ async def get_commitments(
                 block=commit["block"],
                 account_id=decode_metadata(commit),
             )
-            bt.logging.debug(f"🔍 Found commitment for hotkey {hotkey}.")
+            logger.debug(f"🔍 Found commitment for hotkey {hotkey}.")
     return result
 
 
@@ -43,7 +44,7 @@ async def wait_for_blocks(subtensor: bt.async_subtensor, last_block: int, block_
     """
     current_block = await subtensor.get_current_block()
     while (current_block - last_block) < block_interval and not shutdown_event.is_set():
-        bt.logging.info(f"⏳ Waiting... Current: {current_block}, Last: {last_block}")
+        logger.info(f"⏳ Waiting... Current: {current_block}, Last: {last_block}")
         await subtensor.wait_for_block()
         current_block = await subtensor.get_current_block()
     return current_block
@@ -60,7 +61,7 @@ def update_weights(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -
         if not block_numbers:
             continue
         ema = db["scores"][hotkey][block_numbers[0]]
-        bt.logging.debug(f"📊 {hotkey}: initial EMA from block {block_numbers[0]} = {ema}")
+        logger.debug(f"📊 {hotkey}: initial EMA from block {block_numbers[0]} = {ema}")
         for j in range(1, len(block_numbers)):
             current_block = block_numbers[j]
             prev_block = block_numbers[j - 1]
@@ -68,13 +69,13 @@ def update_weights(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -
             alpha = 2.0 / (block_diff + 1)
             current_value = db["scores"][hotkey][current_block]
             ema = (current_value * alpha) + (ema * (1 - alpha))
-            bt.logging.debug(
+            logger.debug(
                 f"📊 {hotkey}: updated EMA at block {current_block} = {ema:.2f} (alpha={alpha:.2f})"
             )
         weights[i] = max(0.0, ema)
-        bt.logging.info(f"🏁 Final weight for {hotkey}: {weights[i]:.4f}")
+        logger.info(f"🏁 Final weight for {hotkey}: {weights[i]:.4f}")
     total = sum(weights)
     if total > 0:
         weights = [w / total for w in weights]
-    bt.logging.info(f"🔢 Normalized weights: {weights}")
+    logger.info(f"🔢 Normalized weights: {weights}")
     return weights

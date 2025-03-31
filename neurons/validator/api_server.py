@@ -5,7 +5,7 @@ from typing import Any
 
 from aiohttp import web
 import bittensor as bt
-
+from loguru import logger
 def serialize_db_data(data: Any) -> Any:
     """
     Recursively convert shelve data to JSON-serializable format.
@@ -33,7 +33,7 @@ async def handle_db(request: web.Request) -> web.Response:
             data = {key: serialize_db_data(db[key]) for key in db.keys()}
         return web.json_response(data)
     except Exception as e:
-        # bt.logging.error(f"❌ Error reading DB: {e}")
+        logger.error(f"❌ Error reading DB: {e}")
         return web.json_response({"error": str(e)}, status=500)
     
 async def handle_hotkey(request: web.Request) -> web.Response:
@@ -59,7 +59,7 @@ async def handle_hotkey(request: web.Request) -> web.Response:
             }
         return web.json_response(response_data)
     except Exception as e:
-        bt.logging.error(f"❌ Error in handle_hotkey: {e}")
+        logger.error(f"❌ Error in handle_hotkey: {e}")
         return web.json_response({"error": str(e)}, status=500)
 
 async def run_api_server(db_filename: str, port: int, shutdown_event: asyncio.Event) -> None:
@@ -74,7 +74,7 @@ async def run_api_server(db_filename: str, port: int, shutdown_event: asyncio.Ev
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", port)
-    bt.logging.info(f"🚀 API server starting on http://127.0.0.1:{port}")
+    logger.info(f"🚀 API server starting on http://127.0.0.1:{port}")
     await site.start()
     while not shutdown_event.is_set():
         await asyncio.sleep(1)

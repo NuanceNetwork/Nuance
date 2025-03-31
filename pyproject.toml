@@ -6,5 +6,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "bittensor>=9.1.0",
+    "loguru>=0.7.3",
     "pydantic-settings>=2.8.1",
 ]

@@ -5,12 +5,27 @@ from types import SimpleNamespace
 
 import aiohttp
 import bittensor as bt
+from loguru import logger
 
 import nuance.constants as constants
 from nuance.llm import model
 from nuance.settings import settings
-from nuance.utils import http_request_with_retry, record_db_error
+from nuance.utils import http_request_with_retry, record_db_error, verify_signature
 
+
+async def get_all_tweets(account: str) -> list[dict]:
+    """
+    Retrieve all tweets for a given account.
+    """
+    API_URL = "https://apis.datura.ai/twitter"
+    headers = {"Authorization": settings.DATURA_API_KEY, "Content-Type": "application/json"}
+    payload = {"query": f"from:{account}", "sort": "Latest"}
+    async with aiohttp.ClientSession() as session:
+        data = await http_request_with_retry(
+            session, "POST", API_URL, json=payload, headers=headers
+        )
+        logger.info(f"✅ Fetched tweets for account {account} (total: {len(data)})")
+        return data
 
 async def get_all_replies(account: str) -> list[dict]:
     """
@@ -23,7 +38,7 @@ async def get_all_replies(account: str) -> list[dict]:
         data = await http_request_with_retry(
             session, "POST", API_URL, json=payload, headers=headers
         )
-        bt.logging.info(f"✅ Fetched replies for account {account} (total: {len(data)})")
+        logger.info(f"✅ Fetched replies for account {account} (total: {len(data)})")
         return data
     
 async def get_tweet(tweet_id: str) -> dict:
@@ -34,7 +49,7 @@ async def get_tweet(tweet_id: str) -> dict:
     headers = {"Authorization": settings.DATURA_API_KEY, "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
         data = await http_request_with_retry(session, "GET", API_URL, headers=headers)
-        bt.logging.info(f"✅ Fetched tweet {tweet_id}.")
+        logger.info(f"✅ Fetched tweet {tweet_id}.")
         return data
     
 async def process_reply(
@@ -47,7 +62,7 @@ async def process_reply(
     try:
         reply_id = reply["id"]
         if reply_id in db["seen"]:
-            bt.logging.debug(f"⏩ Reply {reply_id} already processed.")
+            logger.debug(f"⏩ Reply {reply_id} already processed.")
             return
 
         db["seen"].add(reply_id)
@@ -59,7 +74,7 @@ async def process_reply(
         # Check if the reply comes from a verified username using the CSV list.
         username = reply["user"].get("screen_name", "").strip().lower()
         if username not in constants.VERIFIED_USERNAMES:
-            bt.logging.info(
+            logger.info(
                 f"🚫 Reply {reply_id} from unverified username @{username}; skipping."
             )
             return
@@ -69,7 +84,7 @@ async def process_reply(
         )
         account_age = datetime.now(account_created_at.tzinfo) - account_created_at
         if account_age.days < 365:
-            bt.logging.info(
+            logger.info(
                 f"⏳ Reply {reply_id} from account younger than 1 year; skipping."
             )
             return
@@ -78,7 +93,7 @@ async def process_reply(
         child_text = reply.get("text", "")
         parent_id = reply.get("in_reply_to_status_id")
         if not parent_id:
-            bt.logging.info(f"❓ Reply {reply_id} has no parent tweet; skipping.")
+            logger.info(f"❓ Reply {reply_id} has no parent tweet; skipping.")
             return
 
         parent_tweet = await get_tweet(tweet_id=parent_id)
@@ -88,9 +103,8 @@ async def process_reply(
         parent_text = parent_tweet.get("text", "")
         parent_hotkey_sig = parent_tweet["user"].get("description", "")
 
-        keypair = bt.Keypair(ss58_address=commit.hotkey)
-        if not keypair.verify(data=commit.account_id, signature=parent_hotkey_sig):
-            bt.logging.warning(
+        if not verify_signature(commit.hotkey, parent_hotkey_sig, commit.account_id):
+            logger.warning(
                 f"❌ Signature verification failed for {commit.hotkey} on tweet {parent_id}."
             )
             return
@@ -100,7 +114,7 @@ async def process_reply(
         )
         llm_response = await model(prompt_about)
         if llm_response.strip() != "True":
-            bt.logging.info(
+            logger.info(
                 f"🗑️  Tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
             )
             return
@@ -114,15 +128,15 @@ async def process_reply(
         increment = math.log(followers_count) if followers_count > 0 else 0
         if is_positive_response:
             db["scores"][commit.hotkey][step_block] += increment
-            bt.logging.info(
+            logger.info(
                 f"👍 Reply {reply_id} positive. Score for {commit.hotkey} increased by {increment:.2f}."
             )
         else:
             db["scores"][commit.hotkey][step_block] -= increment
-            bt.logging.info(
+            logger.info(
                 f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
             )
     except Exception as e:
         error_msg = f"❌ Error processing reply {reply.get('id', 'unknown')}: {e}"
-        bt.logging.error(error_msg)
+        logger.error(error_msg)
         record_db_error(db, error_msg)
