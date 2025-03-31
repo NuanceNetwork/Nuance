@@ -40,16 +40,33 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     btcli register --wallet.name your_wallet_name --wallet.hotkey your_hotkey_name --netuid {netuid}
     
     # Check your registration status
-    btcli subnets list
+    btcli subnets show
     ```
 
 4. Set up your X account with the required signature
 
     This step is crucial - validators will verify your X account using this signature.
     
-    ```sh
+    ```python
     # Generate your signature using Python
-    uv run python3 -c "import bittensor as bt; wallet = bt.wallet(path='your_wallet_path', name='your_wallet_name', hotkey='your_hotkey_name'); x_account_username = 'your_x_username'; signature = '0x' + wallet.hotkey.sign(x_account_username).hex(); print(f'X Username: {x_account_username}\nSignature: {signature}')"
+    import bittensor as bt
+
+    # Initialize wallet
+    wallet = bt.wallet(
+        path='your_wallet_path',
+        name='your_wallet_name', 
+        hotkey='your_hotkey_name'
+    )
+
+    # X account username to sign
+    x_account_username = 'your_x_username'
+
+    # Generate signature
+    signature = '0x' + wallet.hotkey.sign(x_account_username).hex()
+
+    # Print results
+    print(f'X Username: {x_account_username}')
+    print(f'Signature: {signature}')
     ```
     
     Update your X account profile:
@@ -64,6 +81,7 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     # Run the miner script
     python -m neurons.miner.miner \
         --netuid {netuid} \
+        --wallet.path "your_wallet_path" \
         --wallet.name "your_wallet_name" \
         --wallet.hotkey "your_hotkey_name" \
         --subtensor.network finney
@@ -81,7 +99,7 @@ To set up a miner node on the Nuance Subnet, follow these steps:
 
 If you encounter issues:
 
-- Verify your wallet is registered: `btcli subnets list`
+- Verify your wallet is registered: `btcli subnets show`
 - Check your X account is properly set up with the signature
 - Ensure your X account is public and active
 - Try recommitting your X account username if validators aren't picking up your content

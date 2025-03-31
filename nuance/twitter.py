@@ -72,14 +72,14 @@ async def process_reply(
         db["child_replies"].append(reply)
 
         # Check if the reply comes from a verified username using the CSV list.
-        username = reply["user"].get("screen_name", "").strip().lower()
+        username = reply["user"].get("username", "").strip().lower()
         if username not in constants.VERIFIED_USERNAMES:
             logger.info(
                 f"🚫 Reply {reply_id} from unverified username @{username}; skipping."
             )
             return
 
-        account_created_at = datetime.strptime(
+        account_created_at = datetime.datetime.strptime(
             reply["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
         account_age = datetime.now(account_created_at.tzinfo) - account_created_at
@@ -126,6 +126,7 @@ async def process_reply(
         is_positive_response = llm_response.strip() == "True"
 
         increment = math.log(followers_count) if followers_count > 0 else 0
+        db["scores"][commit.hotkey].setdefault(step_block, 0)
         if is_positive_response:
             db["scores"][commit.hotkey][step_block] += increment
             logger.info(

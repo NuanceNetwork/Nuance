@@ -8,7 +8,6 @@ from neurons.config import get_config
 class Miner:
     def __init__(self, config: bt.Config):
         self.config = config
-        asyncio.run(self.setup_bittensor_objects())
 
     async def setup_bittensor_objects(self):
         logger.info("Setting up Bittensor objects.")
@@ -28,15 +27,19 @@ class Miner:
             self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
             logger.info(f"Running miner on uid: {self.uid}")
             
-    def run(self):
+    async def run(self):
         "Miner input X account u and commit to the chain"
         x_account_username = input("Enter your X account username: ")
         try:
-            asyncio.run(self.subtensor.commit(wallet=self.wallet, netuid=self.config.netuid, data=x_account_username))
+            await self.subtensor.commit(wallet=self.wallet, netuid=self.config.netuid, data=x_account_username)
             logger.info(f"X account username: {x_account_username} committed to chain")
         except Exception as e:
             logger.error(f"Error committing to chain: {e}")
-                
-if __name__ == "__main__":
+            
+async def main():
     miner = Miner(get_config())
-    miner.run()
+    await miner.setup_bittensor_objects()
+    await miner.run()
+
+if __name__ == "__main__":
+    asyncio.run(main())

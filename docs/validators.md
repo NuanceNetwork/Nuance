@@ -109,6 +109,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    pm2 start python --name "validator_sn{netuid}" \
        -- -m neurons.validator.validator \
        --netuid {netuid} \
+       --wallet.path "your_wallet_path" \
        --wallet.name "your_wallet_name" \
        --wallet.hotkey "your_wallet_hotkey" \
        --subtensor.network finney \

@@ -20,7 +20,6 @@ from nuance.utils import record_db_error
 class Validator:
     def __init__(self, config: bt.Config):
         self.config = config
-        asyncio.run(self.setup_bittensor_objects())
         
     def setup_logging(self):
         # Remove default loguru handler
@@ -134,36 +133,36 @@ class Validator:
 
             logger.info("👋 Shutdown event detected. Exiting main loop.")        
             
-    def run(self):
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    async def run(self):
         shutdown_event = asyncio.Event()
-        loop.create_task(self.main_loop(shutdown_event=shutdown_event))
-        loop.create_task(
+        main_loop_task = asyncio.create_task(self.main_loop(shutdown_event=shutdown_event))
+        api_server_task = asyncio.create_task(
             run_api_server(
                 db_filename=self.config.validator.db_filename, 
                 port=self.config.validator.db_api_port, 
                 shutdown_event=shutdown_event
             )
         )
-        loop.run_forever()
+        await asyncio.gather(main_loop_task, api_server_task)
             
-    def __enter__(self):
-        logger.debug("Starting validator in background thread.")
-        self.thread = threading.Thread(target=self.run, daemon=True)
-        self.thread.start()
-        logger.debug("Started")
+    async def __aenter__(self):
+        logger.debug("Starting validator.")
+        asyncio.create_task(self.run())
+        logger.debug("Started validator.")
         return self
     
-    def __exit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback):
         pass
-    
-    def handle_signal(self, signum, frame):
-        logger.info(f"Received signal {signum}. Exiting...")
-        exit()
         
-if __name__ == "__main__":
-    with Validator(get_config()) as validator:
+async def main():
+    validator = Validator(get_config())
+    await validator.setup_bittensor_objects()
+    validator.setup_logging()
+    
+    async with validator:
         while True:
             logger.info("Validator is running...")
-            time.sleep(constants.EPOCH_LENGTH // 4)
+            await asyncio.sleep(constants.EPOCH_LENGTH // 4)
+        
+if __name__ == "__main__":
+    asyncio.run(main())
