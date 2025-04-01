@@ -45,7 +45,7 @@ async def get_tweet(tweet_id: str) -> dict:
     """
     Retrieve tweet data using the Datura API.
     """
-    API_URL = f"https://apis.datura.ai/twitter/{tweet_id}"
+    API_URL = f"https://apis.datura.ai/twitter/post?id={tweet_id}"
     headers = {"Authorization": settings.DATURA_API_KEY, "Content-Type": "application/json"}
     async with aiohttp.ClientSession() as session:
         data = await http_request_with_retry(session, "GET", API_URL, headers=headers)
@@ -82,7 +82,7 @@ async def process_reply(
         account_created_at = datetime.datetime.strptime(
             reply["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
-        account_age = datetime.now(account_created_at.tzinfo) - account_created_at
+        account_age = datetime.datetime.now(account_created_at.tzinfo) - account_created_at
         if account_age.days < 365:
             logger.info(
                 f"⏳ Reply {reply_id} from account younger than 1 year; skipping."

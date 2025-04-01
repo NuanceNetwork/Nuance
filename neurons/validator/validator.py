@@ -1,10 +1,8 @@
 import os
 import sys
-import time
 import asyncio
 from collections import defaultdict
 import shelve
-import threading
 import traceback
 
 import bittensor as bt
