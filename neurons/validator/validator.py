@@ -113,7 +113,7 @@ class Validator:
                             logger.error(error_msg)
                             record_db_error(db, error_msg)
                             
-                    current_block = await chain.wait_for_blocks(self.subtensor, db['last_set_weights'], constants.BLOCK_INTERVAL)
+                    current_block = await chain.wait_for_blocks(self.subtensor, db['last_set_weights'], constants.EPOCH_LENGTH)
                     weights = chain.update_weights(self.metagraph, step_block, db)
                     await self.subtensor.set_weights(
                         wallet=self.wallet,
