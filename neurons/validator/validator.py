@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 from collections import defaultdict
+import datetime
 import shelve
 import traceback
 
@@ -18,6 +19,8 @@ from nuance.utils import record_db_error
 class Validator:
     def __init__(self, config: bt.Config):
         self.config = config
+        self.forward_lock = asyncio.Lock()
+        self.is_forwarding = False
         
     def setup_logging(self):
         # Remove default loguru handler
@@ -62,7 +65,51 @@ class Validator:
         else:
             self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
             logger.info(f"Running validator on uid: {self.uid}")
-            
+    
+    async def forward(self, db: shelve.Shelf, step_block: int) -> None:
+        """
+        Process tweets and replies for all committed accounts.
+        This is the 'forward' method that runs once per day.
+        """
+        self.is_forwarding = True
+        today = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        current_hour = datetime.datetime.now(datetime.timezone.utc).hour
+
+        
+        if current_hour >= constants.SCORING_HOUR and today not in db["scored_days"]:
+            logger.info(f"Scoring today ({today}) because it's past {constants.SCORING_HOUR}.")
+            # Update miner commitments
+            commits = await chain.get_commitments(
+                subtensor=self.subtensor, metagraph=self.metagraph, netuid=self.config.netuid
+            )
+            logger.info(f"✅ Pulled {len(commits)} commits.")
+
+            # Process replies
+            for commit in commits.values():
+                try:
+                    replies = await twitter.get_all_replies(commit.account_id)
+                    logger.info(
+                        f"💬 Found {len(replies)} replies for account {commit.account_id}."
+                    )
+                    tasks = [
+                        asyncio.wait_for(
+                            twitter.process_reply(reply, commit, step_block, db), timeout=30
+                        )
+                        for reply in replies
+                    ]
+                    await asyncio.gather(*tasks, return_exceptions=True)
+                except Exception as commit_e:
+                    error_msg = (
+                        f"❌ Error processing commit {commit.hotkey}: {commit_e}"
+                    )
+                    logger.error(error_msg)
+                    record_db_error(db, error_msg)
+                
+            db["scored_days"].append(today)
+        else:
+            logger.info(f"Not scoring today ({today}) because it's not past {constants.SCORING_HOUR}.")
+                    
+        self.is_forwarding = False     
             
     async def main_loop(self, shutdown_event: asyncio.Event) -> None:
         """
@@ -81,38 +128,19 @@ class Validator:
             db.setdefault("parent_tweets", [])
             db.setdefault("child_replies", [])
             db.setdefault("errors", [])
+            db.setdefault("scored_days", [])
 
             while not shutdown_event.is_set():
                 try:
                     step_block = await self.subtensor.get_current_block()
                     db["step_blocks"].append(step_block)
                     logger.info(f"🔄 Processing block {step_block}.")
-
-                    commits = await chain.get_commitments(
-                        subtensor=self.subtensor, metagraph=self.metagraph, netuid=self.config.netuid
-                    )
-                    logger.info(f"✅ Pulled {len(commits)} commits.")
-
-                    for commit in commits.values():
-                        try:
-                            replies = await twitter.get_all_replies(commit.account_id)
-                            logger.info(
-                                f"💬 Found {len(replies)} replies for account {commit.account_id}."
-                            )
-                            tasks = [
-                                asyncio.wait_for(
-                                    twitter.process_reply(reply, commit, step_block, db), timeout=30
-                                )
-                                for reply in replies
-                            ]
-                            await asyncio.gather(*tasks, return_exceptions=True)
-                        except Exception as commit_e:
-                            error_msg = (
-                                f"❌ Error processing commit {commit.hotkey}: {commit_e}"
-                            )
-                            logger.error(error_msg)
-                            record_db_error(db, error_msg)
-                            
+                    
+                    # Forward
+                    if not self.is_forwarding:
+                        asyncio.create_task(self.forward(db, step_block))
+                    
+                    # Always update weights
                     current_block = await chain.wait_for_blocks(self.subtensor, db['last_set_weights'], constants.EPOCH_LENGTH)
                     weights = chain.update_weights(self.metagraph, step_block, db)
                     await self.subtensor.set_weights(

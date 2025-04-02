@@ -1,3 +1,4 @@
+import time
 import datetime
 import math
 import shelve
@@ -12,6 +13,28 @@ from nuance.llm import model
 from nuance.settings import settings
 from nuance.utils import http_request_with_retry, record_db_error, verify_signature
 
+twitter_verified_users_cache = {
+    "verified_users": None,
+    "last_updated": None
+}
+
+async def get_twitter_verified_users():
+    """
+    Retrieve a list of verified Twitter users.
+    """
+    current_time = time.time()
+    if twitter_verified_users_cache["last_updated"] is None or current_time - twitter_verified_users_cache["last_updated"] > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL:
+        # Update the cache if it's older than the update interval
+        try:
+            twitter_verified_users_url = constants.NUANCE_CONSTITUTION_STORE_URL + "/verified_users/twitter_verified_users.csv"
+            async with aiohttp.ClientSession() as session:
+                twitter_verified_users_data = await http_request_with_retry(session, "GET", twitter_verified_users_url)
+            twitter_verified_users_cache["verified_users"] = twitter_verified_users_data["content"]
+            twitter_verified_users_cache["last_updated"] = current_time
+        except Exception as e:
+            logger.error(f"❌ Error fetching verified Twitter users: {e}")
+            
+    return twitter_verified_users_cache["verified_users"]
 
 async def get_all_tweets(account: str) -> list[dict]:
     """

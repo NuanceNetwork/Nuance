@@ -1,7 +1,5 @@
 import csv
-import json
 
-import bittensor as bt
 from loguru import logger
 from nuance.settings import settings
 
@@ -31,19 +29,5 @@ def load_verified_usernames(csv_path: str = "verified.csv") -> set:
 
 VERIFIED_USERNAMES = load_verified_usernames()
 
-# Load Prompt Templates from a File
-def load_prompts(file_path: str = "nuance.constitution") -> dict:
-    """
-    Load prompt templates from a JSON file.
-    """
-    try:
-        with open(file_path, "r") as f:
-            prompts = json.load(f)
-            logger.info("✅ Loaded prompt templates from nuance.constitution.")
-            return prompts
-    except Exception as e:
-        logger.error(f"❌ Failed to load prompts from {file_path}: {e}")
-        raise
-
-PROMPTS = load_prompts()
-
+NUANCE_CONSTITUTION_STORE_URL = "https://raw.githubusercontent.com/NuanceNetwork/constitution/refs/heads/main/" # Github URL
+NUANCE_CONSTITUTION_UPDATE_INTERVAL = 3600 # 1 hour
