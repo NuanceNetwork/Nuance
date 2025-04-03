@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 from collections import defaultdict
+from pathlib import Path
 import shelve
 import traceback
 
@@ -82,6 +83,18 @@ class Validator:
             db.setdefault("errors", [])
 
             while not shutdown_event.is_set():
+                db_path = Path(self.config.validator.db_filename)
+                snapshot_db_path = str(db_path.with_name(db_path.stem + "_snapshot" + db_path.suffix))
+                with shelve.open(snapshot_db_path, writeback=False) as snapshot_db:
+                    snapshot_db["scores"] = db["scores"]
+                    snapshot_db["step_blocks"] = db["step_blocks"]
+                    snapshot_db["total_seen"] = db["total_seen"]
+                    snapshot_db["last_set_weights"] = db["last_set_weights"]
+                    snapshot_db["seen"] = db["seen"]
+                    snapshot_db["parent_tweets"] = db["parent_tweets"]
+                    snapshot_db["child_replies"] = db["child_replies"]
+                    snapshot_db["errors"] = db["errors"]
+
                 try:
                     step_block = await self.subtensor.get_current_block()
                     db["step_blocks"].append(step_block)
@@ -129,15 +142,19 @@ class Validator:
                     )
                     logger.error(error_msg)
                     record_db_error(db, error_msg)
+                
 
             logger.info("👋 Shutdown event detected. Exiting main loop.")        
             
     async def run(self):
         shutdown_event = asyncio.Event()
         main_loop_task = asyncio.create_task(self.main_loop(shutdown_event=shutdown_event))
+
+        db_path = Path(self.config.validator.db_filename)
+        snapshot_db_path = str(db_path.with_name(db_path.stem + "_snapshot" + db_path.suffix))
         api_server_task = asyncio.create_task(
             run_api_server(
-                db_filename=self.config.validator.db_filename, 
+                db_filename=snapshot_db_path, 
                 port=self.config.validator.db_api_port, 
                 shutdown_event=shutdown_event
             )

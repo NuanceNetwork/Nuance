@@ -143,14 +143,16 @@ async def process_reply(
         # Check if post already exists in db
         if parent_id in db["seen"]:
             logger.info(f"🗑️  Tweet {parent_id} seen, skipping content check.")
-            if db["parent_tweets"][parent_id]["nuance_accepted"]:
+            if db["parent_tweets"][parent_id]["nuance_accepted"] and db["parent_tweets"][parent_id]["bittensor_relevance_accepted"]:
                 # Update parent tweet
                 parent_tweet["nuance_accepted"] = True
+                parent_tweet["bittensor_relevance_accepted"] = True
                 db["parent_tweets"][parent_id] = parent_tweet
             else:
                 logger.info(f"🗑️  Parent tweet {parent_id} not accepted, skipping reply {reply_id}.")
                 raise Exception(f"Parent tweet {parent_id} not accepted, skipping reply {reply_id}.")
         else:
+            db["parent_tweets"][parent_id] = parent_tweet
             nuance_prompt = await get_nuance_prompt()
             # 4.1 Nuance checking
             prompt_nuance = nuance_prompt["post_evaluation_prompt"].format(
@@ -158,6 +160,7 @@ async def process_reply(
             )
             llm_response = await model(prompt_nuance)
             if llm_response.strip() != "True":
+                db["parent_tweets"][parent_id]["nuance_accepted"] = False
                 logger.info(f"🗑️  Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
                 raise Exception(f"Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
             
@@ -167,35 +170,36 @@ async def process_reply(
             )
             llm_response = await model(prompt_about)
             if llm_response.strip() != "True":
+                db["parent_tweets"][parent_id]["bittensor_relevance_accepted"] = False
                 logger.info(
                     f"🗑️  Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
                 )
                 raise Exception(f"Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}.")
             # Post accepted, add to db
             parent_tweet["nuance_accepted"] = True
-            db["parent_tweets"][parent_id] = parent_tweet
+            parent_tweet["bittensor_relevance_accepted"] = True
         
         # 5. Tone checkin
-        tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'True' if positive/supportive, or 'False' if negative/critical."
+        tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'positive', 'neutral', or 'negative'."
         prompt_tone = tone_prompt_template.format(
             child_text=child_text, parent_text=parent_text
         )
         llm_response = await model(prompt_tone)
-        is_positive_response = llm_response.strip() == "True"
+        is_negative_response = llm_response.strip() == "negative"
 
         # 6. Score update
         followers_count = reply["user"].get("followers_count", 1)
         increment = math.log(followers_count) if followers_count > 0 else 0
         db["scores"][commit.hotkey].setdefault(step_block, 0)
-        if is_positive_response:
+        if is_negative_response:
             db["scores"][commit.hotkey][step_block] += increment
             logger.info(
-                f"👍 Reply {reply_id} positive. Score for {commit.hotkey} increased by {increment:.2f}."
+                f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
             )
         else:
             db["scores"][commit.hotkey][step_block] -= increment
             logger.info(
-                f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
+                f"👍 Reply {reply_id} positive/neutral. Score for {commit.hotkey} increased by {increment:.2f}."
             )
             
     except (aiohttp.ClientError, KeyError) as e:
@@ -210,6 +214,7 @@ async def process_reply(
 
 
     # Update db if the reply is successfully processed
+    db["seen"].add(parent_id)
     db["seen"].add(reply_id)
     db["total_seen"] += 1
     db["child_replies"].append(reply)

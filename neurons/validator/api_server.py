@@ -1,11 +1,15 @@
 import asyncio
 from collections import defaultdict
+import json
+import os
 import shelve
+import traceback
 from typing import Any
 
 from aiohttp import web
 import bittensor as bt
 from loguru import logger
+
 def serialize_db_data(data: Any) -> Any:
     """
     Recursively convert shelve data to JSON-serializable format.
@@ -33,6 +37,7 @@ async def handle_db(request: web.Request) -> web.Response:
             data = {key: serialize_db_data(db[key]) for key in db.keys()}
         return web.json_response(data)
     except Exception as e:
+        e = traceback.format_exc()
         logger.error(f"❌ Error reading DB: {e}")
         return web.json_response({"error": str(e)}, status=500)
     
@@ -44,10 +49,10 @@ async def handle_hotkey(request: web.Request) -> web.Response:
     db_filename = request.app["db_filename"]
     try:
         with shelve.open(db_filename, flag="r") as db:
-            parent_tweets = db.get("parent_tweets", [])
+            parent_tweets = db.get("parent_tweets", {})
             child_replies = db.get("child_replies", [])
             filtered_parents = [
-                tweet for tweet in parent_tweets if tweet.get("miner_hotkey") == hotkey
+                tweet for tweet in parent_tweets.values() if tweet.get("miner_hotkey") == hotkey
             ]
             filtered_replies = [
                 reply for reply in child_replies if reply.get("miner_hotkey") == hotkey
@@ -59,6 +64,7 @@ async def handle_hotkey(request: web.Request) -> web.Response:
             }
         return web.json_response(response_data)
     except Exception as e:
+        e = traceback.format_exc()
         logger.error(f"❌ Error in handle_hotkey: {e}")
         return web.json_response({"error": str(e)}, status=500)
 

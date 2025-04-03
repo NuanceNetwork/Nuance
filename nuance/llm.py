@@ -44,9 +44,9 @@ async def get_nuance_prompt():
 
 async def model(
     prompt: str,
-    model: str = "unsloth/Llama-3.2-3B-Instruct",
+    model: str = "unsloth/Meta-Llama-3.1-8B-Instruct",
     max_tokens: int = 1024,
-    temperature: float = 0.5,
+    temperature: float = 0.0,
 ) -> str:
     """
     Call the Chutes LLM API.
