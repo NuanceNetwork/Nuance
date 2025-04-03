@@ -148,8 +148,8 @@ async def process_reply(
                 parent_tweet["nuance_accepted"] = True
                 db["parent_tweets"][parent_id] = parent_tweet
             else:
-                logger.info(f"🗑️  Tweet {parent_id} not accepted, skipping reply {reply_id}.")
-                raise Exception(f"Tweet {parent_id} not accepted, skipping reply {reply_id}.")
+                logger.info(f"🗑️  Parent tweet {parent_id} not accepted, skipping reply {reply_id}.")
+                raise Exception(f"Parent tweet {parent_id} not accepted, skipping reply {reply_id}.")
         else:
             nuance_prompt = await get_nuance_prompt()
             # 4.1 Nuance checking
@@ -158,8 +158,8 @@ async def process_reply(
             )
             llm_response = await model(prompt_nuance)
             if llm_response.strip() != "True":
-                logger.info(f"🗑️  Reply {reply_id} is not about Bittensor; skipping.")
-                raise Exception(f"Reply {reply_id} is not about Bittensor; skipping.")
+                logger.info(f"🗑️  Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
+                raise Exception(f"Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
             
             # 4.2 Check if the parent tweet is about Bittensor
             prompt_about = nuance_prompt["bittensor_relevance_prompt"].format(
@@ -168,9 +168,9 @@ async def process_reply(
             llm_response = await model(prompt_about)
             if llm_response.strip() != "True":
                 logger.info(
-                    f"🗑️  Tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
+                    f"🗑️  Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
                 )
-                raise Exception(f"Tweet {parent_id} is not about Bittensor; skipping reply {reply_id}.")
+                raise Exception(f"Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}.")
             # Post accepted, add to db
             parent_tweet["nuance_accepted"] = True
             db["parent_tweets"][parent_id] = parent_tweet

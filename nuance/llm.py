@@ -67,5 +67,7 @@ async def model(
         data = await http_request_with_retry(
             session, "POST", url, headers=headers, json=payload
         )
+        logger.debug(f"🔍 Payload sent to LLM model: {payload}")
+        logger.debug(f"🔍 Received response from LLM model: {data}")
         logger.info("✅ Received response from LLM model.")
         return data["choices"][0]["message"]["content"]
