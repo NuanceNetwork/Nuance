@@ -1,3 +1,4 @@
+import csv
 import time
 import datetime
 import math
@@ -14,7 +15,7 @@ from nuance.settings import settings
 from nuance.utils import http_request_with_retry, record_db_error, verify_signature
 
 twitter_verified_users_cache = {
-    "verified_users": [],
+    "verified_users": set(),
     "last_updated": None
 }
 
@@ -29,7 +30,13 @@ async def get_twitter_verified_users():
             twitter_verified_users_url = constants.NUANCE_CONSTITUTION_STORE_URL + "/verified_users/twitter_verified_users.csv"
             async with aiohttp.ClientSession() as session:
                 twitter_verified_users_data = await http_request_with_retry(session, "GET", twitter_verified_users_url)
-            twitter_verified_users_cache["verified_users"] = twitter_verified_users_data
+            
+            # Process the CSV data
+            lines = twitter_verified_users_data.splitlines()
+            reader = csv.DictReader(lines)
+            twitter_verified_users_cache["verified_users"] = {row['username'] for row in reader if 'username' in row}
+            
+            logger.debug(f"✅ Fetched verified Twitter users: {twitter_verified_users_cache['verified_users']}")
             twitter_verified_users_cache["last_updated"] = current_time
         except Exception as e:
             logger.error(f"❌ Error fetching verified Twitter users: {traceback.format_exc()}")
