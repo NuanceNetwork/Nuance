@@ -14,6 +14,7 @@ async def http_request_with_retry(
 ):
     """
     Make an HTTP request with retry logic.
+    Returns JSON if response is application/json, otherwise returns text.
     """
     for attempt in range(MAX_RETRIES):
         try:
@@ -21,7 +22,10 @@ async def http_request_with_retry(
                 method, url, timeout=HTTP_TIMEOUT, **kwargs
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                content_type = response.headers.get('Content-Type', '').lower()
+                if 'application/json' in content_type:
+                    return await response.json()
+                return await response.text()
         except Exception as e:
             logger.warning(f"⚠️  Attempt {attempt + 1} for {url} failed: {e}")
             if attempt < MAX_RETRIES - 1:

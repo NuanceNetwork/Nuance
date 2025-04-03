@@ -2,6 +2,7 @@ import time
 import datetime
 import math
 import shelve
+import traceback
 from types import SimpleNamespace
 
 import aiohttp
@@ -28,10 +29,10 @@ async def get_twitter_verified_users():
             twitter_verified_users_url = constants.NUANCE_CONSTITUTION_STORE_URL + "/verified_users/twitter_verified_users.csv"
             async with aiohttp.ClientSession() as session:
                 twitter_verified_users_data = await http_request_with_retry(session, "GET", twitter_verified_users_url)
-            twitter_verified_users_cache["verified_users"] = twitter_verified_users_data["content"]
+            twitter_verified_users_cache["verified_users"] = twitter_verified_users_data
             twitter_verified_users_cache["last_updated"] = current_time
         except Exception as e:
-            logger.error(f"❌ Error fetching verified Twitter users: {e}")
+            logger.error(f"❌ Error fetching verified Twitter users: {traceback.format_exc()}")
             
     return twitter_verified_users_cache["verified_users"]
 
@@ -93,7 +94,8 @@ async def process_reply(
         # 1. Reply condition checking
         # 1.1 Check if the reply comes from a verified username using the CSV list.
         username = reply["user"].get("username", "").strip().lower()
-        if username not in get_twitter_verified_users()["verified_users"]:
+        verified_users = await get_twitter_verified_users()
+        if username not in verified_users:
             logger.info(
                 f"🚫 Reply {reply_id} from unverified username @{username}; skipping."
             )
@@ -166,8 +168,9 @@ async def process_reply(
             parent_tweet["nuance_accepted"] = True
             db["parent_tweets"][parent_id] = parent_tweet
         
-        # 5. Tone checking
-        prompt_tone = constants.PROMPTS["nuance.constitution"]["tone"].format(
+        # 5. Tone checkin
+        tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'True' if positive/supportive, or 'False' if negative/critical."
+        prompt_tone = tone_prompt_template.format(
             child_text=child_text, parent_text=parent_text
         )
         llm_response = await model(prompt_tone)
@@ -189,12 +192,12 @@ async def process_reply(
             )
             
     except (aiohttp.ClientError, KeyError) as e:
-        error_msg = f"❌ HTTPException: {e}"
+        error_msg = f"❌ {traceback.format_exc()}"
         logger.error(error_msg)
         record_db_error(db, error_msg)
         return
     except Exception as e:
-        error_msg = f"❌ Error processing reply {reply.get('id', 'unknown')}: {e}"
+        error_msg = f"❌ Error processing reply {reply.get('id', 'unknown')}: {traceback.format_exc()}"
         logger.error(error_msg)
         record_db_error(db, error_msg)
 

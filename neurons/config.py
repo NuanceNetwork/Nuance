@@ -23,8 +23,6 @@ def get_config(parser=ArgumentParser()) -> bt.Config:
             config.netuid,
         )
     )
-    print(config)
-    print("full path:", full_path)
     config.neuron.fullpath = os.path.expanduser(full_path)
     if not os.path.exists(config.neuron.fullpath):
         os.makedirs(config.neuron.fullpath, exist_ok=True)

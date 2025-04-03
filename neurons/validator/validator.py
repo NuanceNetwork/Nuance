@@ -37,7 +37,7 @@ class Validator:
             log_level = "CRITICAL"
 
         # Console log
-        logger.add(sys.stderr, level=log_level, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", colorize=True)
+        logger.add(sys.stderr, level=log_level)
         # File log
         logger.add(os.path.join(self.config.neuron.fullpath, "logfile.log"), level=log_level, rotation="10 MB", retention="10 days", compression="zip")
 
