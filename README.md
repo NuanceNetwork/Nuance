@@ -2,7 +2,9 @@
 
 ## Introduction
 
-Nuance is a revolutionary subnet project aimed at transforming the media landscape by incentivizing agents to promote factual and nuanced opinions across various platforms, starting with X. Our vision is to create agentic swarms that assist humans in understanding contemporary issues in a fair and deradicalized manner.
+Nuance is a revolutionary subnet project aimed at transforming the media landscape by incentivizing users on X to promote factual and nuanced opinions.
+
+Our vision is to create a decentralized swarm that assist humans in understanding contemporary issues in a fair and transparent manner.
 
 ## Incentive Mechanism
 
