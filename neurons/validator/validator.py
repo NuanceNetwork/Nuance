@@ -63,7 +63,6 @@ class Validator:
             self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
             logger.info(f"Running validator on uid: {self.uid}")
             
-            
     async def main_loop(self, shutdown_event: asyncio.Event) -> None:
         """
         Main async loop:
@@ -78,7 +77,7 @@ class Validator:
             db.setdefault("total_seen", 0)
             db.setdefault("last_set_weights", 0)
             db.setdefault("seen", set())
-            db.setdefault("parent_tweets", [])
+            db.setdefault("parent_tweets", {})
             db.setdefault("child_replies", [])
             db.setdefault("errors", [])
 
@@ -113,8 +112,9 @@ class Validator:
                             logger.error(error_msg)
                             record_db_error(db, error_msg)
                             
-                    current_block = await chain.wait_for_blocks(self.subtensor, db['last_set_weights'], constants.EPOCH_LENGTH)
+                    current_block = await chain.wait_for_blocks(self.subtensor, db['last_set_weights'], constants.EPOCH_LENGTH, shutdown_event)
                     weights = chain.update_weights(self.metagraph, step_block, db)
+                    logger.debug(f"Weights for block {step_block}: {weights}")
                     await self.subtensor.set_weights(
                         wallet=self.wallet,
                         netuid=self.config.netuid,

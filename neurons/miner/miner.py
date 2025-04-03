@@ -33,6 +33,10 @@ class Miner:
         try:
             await self.subtensor.commit(wallet=self.wallet, netuid=self.config.netuid, data=x_account_username)
             logger.info(f"X account username: {x_account_username} committed to chain")
+            
+            # Get signature
+            signature = '0x' + self.wallet.hotkey.sign(x_account_username).hex()
+            logger.info(f"Your X account description must be set to: {signature}")
         except Exception as e:
             logger.error(f"Error committing to chain: {e}")
             
