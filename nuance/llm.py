@@ -70,4 +70,6 @@ async def model(
         logger.debug(f"🔍 Payload sent to LLM model: {payload}")
         logger.debug(f"🔍 Received response from LLM model: {data}")
         logger.info("✅ Received response from LLM model.")
-        return data["choices"][0]["message"]["content"]
+        llm_response = data["choices"][0]["message"]["content"]
+        logger.debug(f"🔍 LLM response: {llm_response}")
+        return llm_response

@@ -159,7 +159,7 @@ async def process_reply(
                 tweet_text=parent_text
             )
             llm_response = await model(prompt_nuance)
-            if llm_response.strip() != "True":
+            if llm_response.strip().lower() != "approve":
                 db["parent_tweets"][parent_id]["nuance_accepted"] = False
                 logger.info(f"🗑️  Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
                 raise Exception(f"Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}.")
@@ -169,7 +169,7 @@ async def process_reply(
                 tweet_text=parent_text
             )
             llm_response = await model(prompt_about)
-            if llm_response.strip() != "True":
+            if llm_response.strip().lower() != "true":
                 db["parent_tweets"][parent_id]["bittensor_relevance_accepted"] = False
                 logger.info(
                     f"🗑️  Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
