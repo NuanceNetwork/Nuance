@@ -140,7 +140,7 @@ async def process_reply(
             reply["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
         account_age = (
-            datetime.datetime.now(account_created_at.tzinfo) - account_created_at
+            datetime.datetime.now(datetime.timezone.utc) - account_created_at
         )
         if account_age.days < 365:
             logger.info(

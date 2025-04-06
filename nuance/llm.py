@@ -9,38 +9,50 @@ import nuance.constants as constants
 from nuance.settings import settings
 from nuance.utils import http_request_with_retry
 
-nuance_prompt_cache = {
-    "nuance_prompt": {},
-    "last_updated": None
-}
+nuance_prompt_cache = {"nuance_prompt": {}, "last_updated": None}
+
 
 async def get_nuance_prompt():
     current_time = time.time()
-    if nuance_prompt_cache["last_updated"] is None or current_time - nuance_prompt_cache["last_updated"] > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL:
+    if (
+        nuance_prompt_cache["last_updated"] is None
+        or current_time - nuance_prompt_cache["last_updated"]
+        > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+    ):
         # Update the cache if it's older than the update interval
         try:
-            post_evaluation_prompt_url = constants.NUANCE_CONSTITUTION_STORE_URL + "post_evaluation_prompt.txt"
-            bittensor_relevance_prompt_url = constants.NUANCE_CONSTITUTION_STORE_URL + "topic_relevance_prompts/bittensor_prompt.txt"
-            
+            post_evaluation_prompt_url = (
+                constants.NUANCE_CONSTITUTION_STORE_URL + "post_evaluation_prompt.txt"
+            )
+            bittensor_relevance_prompt_url = (
+                constants.NUANCE_CONSTITUTION_STORE_URL
+                + "topic_relevance_prompts/bittensor_prompt.txt"
+            )
+
             async with aiohttp.ClientSession() as session:
-                post_evaluation_prompt_data, bittensor_relevance_prompt_data = await asyncio.gather(
+                (
+                    post_evaluation_prompt_data,
+                    bittensor_relevance_prompt_data,
+                ) = await asyncio.gather(
                     http_request_with_retry(session, "GET", post_evaluation_prompt_url),
-                    http_request_with_retry(session, "GET", bittensor_relevance_prompt_url)
+                    http_request_with_retry(
+                        session, "GET", bittensor_relevance_prompt_url
+                    ),
                 )
-                
+
                 post_evaluation_prompt = post_evaluation_prompt_data
                 bittensor_relevance_prompt = bittensor_relevance_prompt_data
-                    
+
             nuance_prompt_cache["nuance_prompt"] = {
                 "post_evaluation_prompt": post_evaluation_prompt,
-                "bittensor_relevance_prompt": bittensor_relevance_prompt
+                "bittensor_relevance_prompt": bittensor_relevance_prompt,
             }
             nuance_prompt_cache["last_updated"] = current_time
         except Exception as e:
             logger.error(f"Error fetching nuance prompt: {traceback.format_exc()}")
-    
+
     return nuance_prompt_cache["nuance_prompt"]
-            
+
 
 async def model(
     prompt: str,

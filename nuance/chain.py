@@ -1,4 +1,7 @@
 import asyncio
+import datetime
+import base58
+import hashlib
 import shelve
 from typing import cast
 from types import SimpleNamespace
@@ -49,7 +52,7 @@ async def wait_for_blocks(subtensor: bt.async_subtensor, last_block: int, block_
         current_block = await subtensor.get_current_block()
     return current_block
 
-def update_weights(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -> list[float]:
+def get_weights_by_scores(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -> list[float]:
     """
     Calculate new miner weights using an exponential moving average.
     """
@@ -79,3 +82,57 @@ def update_weights(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -
         weights = [w / total for w in weights]
     logger.info(f"🔢 Normalized weights: {weights}")
     return weights
+
+def update_weights(metagraph: bt.metagraph, step_block: int, db: shelve.Shelf) -> list[float]:
+    """
+    Calculate new miner weights by their scores and alpha burn ratio.
+    """
+    # Weights by scores
+    scores_weights = get_weights_by_scores(metagraph, step_block, db)
+    
+    # Weight for owner's hotkey to do alpha burn
+    alpha_burn_weights = [0.0] * len(metagraph.hotkeys)
+    # Get the owner hotkey
+    public_key_bytes = metagraph.owner_hotkey[0]
+    # Convert to bytes
+    public_key_bytes = bytes(public_key_bytes)
+    # Prefix for Substrate address
+    prefix = 42
+    prefix_bytes = bytes([prefix])
+
+    input_bytes = prefix_bytes + public_key_bytes
+
+    # Calculate checksum (blake2b-512)
+    blake2b = hashlib.blake2b(digest_size=64)
+    blake2b.update(b'SS58PRE' + input_bytes)
+    checksum = blake2b.digest()
+    checksum_bytes = checksum[:2] # Take first two bytes of checksum
+
+    # Final bytes = prefix + public key + checksum
+    final_bytes = input_bytes + checksum_bytes
+
+    # Convert to base58
+    owner_hotkey_base58 = base58.b58encode(final_bytes).decode()
+
+    # Get the index of the owner hotkey
+    owner_hotkey_index = metagraph.hotkeys.index(owner_hotkey_base58)
+    alpha_burn_weights[owner_hotkey_index] = 1
+    
+    # Combine weights
+    # Alpha burn ratio drop by day in 9 days from 0.9 2025/04/07 to 0.0 2025/04/16 and then stay 0.0
+    # Calculate the ratio for the current day
+    days_since_start = (datetime.datetime.now(datetime.timezone.utc) - datetime.datetime(2025, 4, 7, tzinfo=datetime.timezone.utc)).days
+    if days_since_start < 0:
+        alpha_burn_ratio = 0.9
+    elif days_since_start > 9:
+        alpha_burn_ratio = 0.0
+    else:
+        alpha_burn_ratio = 0.9 - (0.9 * days_since_start / 9)
+        
+    # Combine weights
+    combined_weights = [
+        (alpha_burn_ratio * alpha_burn_weight) + ((1 - alpha_burn_ratio) * score_weight)
+        for alpha_burn_weight, score_weight in zip(alpha_burn_weights, scores_weights)
+    ]
+    
+    return combined_weights
