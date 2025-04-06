@@ -127,6 +127,7 @@ def update_weights(
 
     # Get the index of the owner hotkey
     owner_hotkey_index = metagraph.hotkeys.index(owner_hotkey_base58)
+    logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey_base58} (owner's hotkey): 1")
     alpha_burn_weights[owner_hotkey_index] = 1
 
     # Combine weights
