@@ -9,6 +9,7 @@ MAX_RETRIES = 3
 RETRY_DELAY = 2
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=10)
 
+
 async def http_request_with_retry(
     session: aiohttp.ClientSession, method: str, url: str, **kwargs
 ):
@@ -22,8 +23,8 @@ async def http_request_with_retry(
                 method, url, timeout=HTTP_TIMEOUT, **kwargs
             ) as response:
                 response.raise_for_status()
-                content_type = response.headers.get('Content-Type', '').lower()
-                if 'application/json' in content_type:
+                content_type = response.headers.get("Content-Type", "").lower()
+                if "application/json" in content_type:
                     return await response.json()
                 return await response.text()
         except Exception as e:
@@ -33,14 +34,16 @@ async def http_request_with_retry(
             else:
                 logger.error(f"❌ All {MAX_RETRIES} attempts failed for {url}.")
                 raise
-            
+
+
 def verify_signature(ss58_address: str, signature: str, data: str) -> bool:
     """
     Verify a signature against an account id.
     """
     keypair = bt.Keypair(ss58_address=ss58_address)
     return keypair.verify(data=data, signature=signature)
-            
+
+
 # Database Helper: Record Errors
 def record_db_error(db: shelve.Shelf, error_msg: str) -> None:
     """
