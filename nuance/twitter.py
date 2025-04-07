@@ -192,7 +192,7 @@ async def process_reply(
 
         # 4. Post content checking
         # Check if post already exists in db
-        if parent_id in db["seen"]:
+        if parent_id in db["parent_tweets"]:
             logger.info(f"🗑️  Tweet {parent_id} seen, skipping content check.")
             if (
                 db["parent_tweets"][parent_id]["nuance_accepted"]
@@ -277,7 +277,6 @@ async def process_reply(
         record_db_error(db, error_msg)
 
     # Update db if the reply is successfully processed
-    db["seen"].add(parent_id)
     db["seen"].add(reply_id)
     db["total_seen"] += 1
     db["child_replies"].append(reply)

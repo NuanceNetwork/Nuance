@@ -77,7 +77,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
 
 4. Configure API Keys
 
-   The validation process use services provided by . You can provide these in two ways:
+   The validation process use services provided by [Datura AI](https://www.datura.ai/) and [NineteenAI](https://nineteen.ai/). You can provide these in two ways:
 
    **Option 1: Export as environment variables**
    ```sh
