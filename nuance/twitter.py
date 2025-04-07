@@ -81,7 +81,7 @@ async def get_all_tweets(account: str) -> list[dict]:
     payload = {"query": f"from:{account}", "sort": "Latest"}
     async with aiohttp.ClientSession() as session:
         data = await http_request_with_retry(
-            session, "POST", API_URL, json=payload, headers=headers
+            session, "GET", API_URL, params=payload, headers=headers
         )
         logger.info(f"✅ Fetched tweets for account {account} (total: {len(data)})")
         return data
@@ -99,7 +99,7 @@ async def get_all_replies(account: str) -> list[dict]:
     payload = {"query": f"to:{account}", "sort": "Latest", "count": 100}
     async with aiohttp.ClientSession() as session:
         data = await http_request_with_retry(
-            session, "POST", API_URL, json=payload, headers=headers
+            session, "GET", API_URL, params=payload, headers=headers
         )
         logger.info(f"✅ Fetched replies for account {account} (total: {len(data)})")
         return data
@@ -256,12 +256,12 @@ async def process_reply(
         increment = math.log(followers_count) if followers_count > 0 else 0
         db["scores"][commit.hotkey].setdefault(step_block, 0)
         if is_negative_response:
-            db["scores"][commit.hotkey][step_block] += increment
+            db["scores"][commit.hotkey][step_block] -= increment
             logger.info(
                 f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
             )
         else:
-            db["scores"][commit.hotkey][step_block] -= increment
+            db["scores"][commit.hotkey][step_block] += increment
             logger.info(
                 f"👍 Reply {reply_id} positive/neutral. Score for {commit.hotkey} increased by {increment:.2f}."
             )
