@@ -126,7 +126,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    ```
 
    **Configuration Options:**
-   - `--netuid`: Your subnet ID (required)
+   - `--netuid`: Subnet ID (Nuance Subnet ID is 23)
    - `--wallet.name`: Your wallet name (required)
    - `--wallet.hotkey`: Your wallet hotkey (required)
    - `--subtensor.network`: Network to connect to (default: finney)
