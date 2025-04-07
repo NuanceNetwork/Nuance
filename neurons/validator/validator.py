@@ -96,6 +96,10 @@ class Validator:
                     snapshot_db["errors"] = db["errors"]
 
                 try:
+                    # Resync metagraph
+                    await self.metagraph.sync()
+                    logger.info("🔄 Synced metagraph.")
+                    
                     step_block = await self.subtensor.get_current_block()
                     db["step_blocks"].append(step_block)
                     logger.info(f"🔄 Processing block {step_block}.")
