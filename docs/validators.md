@@ -77,12 +77,14 @@ To set up a validator node on the Nuance Subnet, follow these steps:
 
 4. Configure API Keys
 
-   The validator requires API keys for Datura and Chutes services. You can provide these in two ways:
+   The validation process use services provided by . You can provide these in two ways:
 
    **Option 1: Export as environment variables**
    ```sh
    # Export API keys
    export DATURA_API_KEY="your_datura_api_key_here"
+   # Validator of Nuance get free access to NineteenAI services for validation by default so no API key is needed. We thank Nineteen for their generosity.
+   # You can optionally provide your API key.
    export NINETEEN_API_KEY="your_nineteen_api_key_here"
    ```
 

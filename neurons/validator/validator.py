@@ -113,7 +113,7 @@ class Validator:
                             )
                             tasks = [
                                 asyncio.wait_for(
-                                    twitter.process_reply(reply, commit, step_block, db), timeout=30
+                                    twitter.process_reply(reply, commit, step_block, db, self.wallet.hotkey), timeout=30
                                 )
                                 for reply in replies
                             ]

@@ -15,10 +15,7 @@ from nuance.llm import model, get_nuance_prompt
 from nuance.settings import settings
 from nuance.utils import http_request_with_retry, record_db_error, verify_signature
 
-twitter_verified_users_cache = {
-    "verified_user_ids": set(), 
-    "last_updated": None
-}
+twitter_verified_users_cache = {"verified_user_ids": set(), "last_updated": None}
 twitter_cache_lock = asyncio.Lock()
 
 
@@ -27,29 +24,48 @@ async def get_twitter_verified_users():
     Retrieve a list of verified Twitter users.
     """
     current_time = time.time()
-    
+
     # Check if update is needed without acquiring the lock
-    if twitter_verified_users_cache["last_updated"] is None or current_time - twitter_verified_users_cache["last_updated"] > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL:
+    if (
+        twitter_verified_users_cache["last_updated"] is None
+        or current_time - twitter_verified_users_cache["last_updated"]
+        > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+    ):
         # Only acquire the lock if update might be needed
         async with twitter_cache_lock:
             # Re-check after acquiring the lock (another task might have updated meanwhile)
-            if twitter_verified_users_cache["last_updated"] is None or current_time - twitter_verified_users_cache["last_updated"] > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL:
+            if (
+                twitter_verified_users_cache["last_updated"] is None
+                or current_time - twitter_verified_users_cache["last_updated"]
+                > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+            ):
                 # Update the cache if it's older than the update interval
                 try:
-                    twitter_verified_users_url = constants.NUANCE_CONSTITUTION_STORE_URL + "/verified_users/twitter_verified_users.csv"
+                    twitter_verified_users_url = (
+                        constants.NUANCE_CONSTITUTION_STORE_URL
+                        + "/verified_users/twitter_verified_users.csv"
+                    )
                     async with aiohttp.ClientSession() as session:
-                        twitter_verified_users_data = await http_request_with_retry(session, "GET", twitter_verified_users_url)
-                    
+                        twitter_verified_users_data = await http_request_with_retry(
+                            session, "GET", twitter_verified_users_url
+                        )
+
                     # Process the CSV data
                     lines = twitter_verified_users_data.splitlines()
                     reader = csv.DictReader(lines)
-                    twitter_verified_users_cache["verified_user_ids"] = {row['id'] for row in reader if 'id' in row}
-                    
-                    logger.debug(f"✅ Fetched verified Twitter users: {str(twitter_verified_users_cache['verified_user_ids'])[:100]} ...")
+                    twitter_verified_users_cache["verified_user_ids"] = {
+                        row["id"] for row in reader if "id" in row
+                    }
+
+                    logger.debug(
+                        f"✅ Fetched verified Twitter users: {str(twitter_verified_users_cache['verified_user_ids'])[:100]} ..."
+                    )
                     twitter_verified_users_cache["last_updated"] = current_time
                 except Exception as e:
-                    logger.error(f"❌ Error fetching verified Twitter users: {traceback.format_exc()}")
-    
+                    logger.error(
+                        f"❌ Error fetching verified Twitter users: {traceback.format_exc()}"
+                    )
+
     return twitter_verified_users_cache["verified_user_ids"]
 
 
@@ -105,7 +121,11 @@ async def get_tweet(tweet_id: str) -> dict:
 
 
 async def process_reply(
-    reply: dict, commit: SimpleNamespace, step_block: int, db: shelve.Shelf
+    reply: dict,
+    commit: SimpleNamespace,
+    step_block: int,
+    db: shelve.Shelf,
+    keypair=None,
 ) -> None:
     """
     Process a tweet reply, evaluate via LLM prompts, and update scores.
@@ -139,9 +159,7 @@ async def process_reply(
         account_created_at = datetime.datetime.strptime(
             reply["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
         )
-        account_age = (
-            datetime.datetime.now(datetime.timezone.utc) - account_created_at
-        )
+        account_age = datetime.datetime.now(datetime.timezone.utc) - account_created_at
         if account_age.days < 365:
             logger.info(
                 f"⏳ Reply {reply_id} from account younger than 1 year; skipping."
@@ -198,7 +216,7 @@ async def process_reply(
             prompt_nuance = nuance_prompt["post_evaluation_prompt"].format(
                 tweet_text=parent_text
             )
-            llm_response = await model(prompt_nuance)
+            llm_response = await model(prompt_nuance, keypair=keypair)
             if llm_response.strip().lower() != "approve":
                 db["parent_tweets"][parent_id]["nuance_accepted"] = False
                 logger.info(
@@ -212,7 +230,7 @@ async def process_reply(
             prompt_about = nuance_prompt["bittensor_relevance_prompt"].format(
                 tweet_text=parent_text
             )
-            llm_response = await model(prompt_about)
+            llm_response = await model(prompt_about, keypair=keypair)
             if llm_response.strip().lower() != "true":
                 db["parent_tweets"][parent_id]["bittensor_relevance_accepted"] = False
                 logger.info(
@@ -230,7 +248,7 @@ async def process_reply(
         prompt_tone = tone_prompt_template.format(
             child_text=child_text, parent_text=parent_text
         )
-        llm_response = await model(prompt_tone)
+        llm_response = await model(prompt_tone, keypair=keypair)
         is_negative_response = llm_response.strip() == "negative"
 
         # 6. Score update

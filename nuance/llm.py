@@ -3,6 +3,7 @@ import time
 import traceback
 
 import aiohttp
+import bittensor as bt
 from loguru import logger
 
 import nuance.constants as constants
@@ -59,21 +60,38 @@ async def model(
     model: str = "unsloth/Meta-Llama-3.1-8B-Instruct",
     max_tokens: int = 1024,
     temperature: float = 0.0,
+    top_p: float = 0.5,
+    keypair = None
 ) -> str:
     """
     Call the Chutes LLM API.
     """
     url = "https://api.nineteen.ai/v1/chat/completions"
-    headers = {
-        "Authorization": f"Bearer {settings.NINETEEN_API_KEY}",
-        "Content-Type": "application/json",
-    }
+    if settings.NINETEEN_API_KEY:
+        # Use provided API key if provided
+        headers = {
+            "Authorization": f"Bearer {settings.NINETEEN_API_KEY}",
+            "Content-Type": "application/json",
+        }
+    else:
+        # Use authorization by validator 's signature
+        nonce = str(time.time_ns())
+        signature = f"0x{keypair.sign(nonce).hex()}"
+        headers = {
+            "validator-hotkey": keypair.ss58_address,
+            "signature": signature,
+            "nonce": nonce,
+            "netuid": "23",
+            "Content-Type": "application/json",
+        }
+        
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
         "stream": False,
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "top_p": top_p
     }
     async with aiohttp.ClientSession() as session:
         data = await http_request_with_retry(
