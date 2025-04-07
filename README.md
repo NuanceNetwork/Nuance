@@ -32,4 +32,4 @@ For detailed instructions on setting up validators, please refer to the [full do
 
 ## Miner Setup
 
-For detailed instructions on setting up miners, please refer to the [full documentation](docs/validators.md).
+For detailed instructions on setting up miners, please refer to the [full documentation](docs/miners.md).
