@@ -22,7 +22,7 @@ To set up a miner node on the Nuance Subnet, follow these steps:
 2. Install the latest version of the Nuance Subnet repository
     ```sh
     # Clone the repository
-    git clone https://github.com/your-org/nuance-subnet
+    git clone https://github.com/NuanceNetwork/Nuance
     cd nuance-subnet
 
     # Environment setup with uv
