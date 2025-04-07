@@ -1,0 +1,7 @@
+{
+  "nuance.constitution": {
+    "topic": "Review the following tweet and determine if it's about Bittensor.\nTweet text: {tweet_text}\nRespond with only 'True' if it's about Bittensor, or 'False' otherwise.",
+    
+    "tone": "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'True' if positive/supportive, or 'False' if negative/critical."
+  }
+}
