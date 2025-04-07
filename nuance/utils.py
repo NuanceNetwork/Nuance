@@ -28,7 +28,7 @@ async def http_request_with_retry(
                     return await response.json()
                 return await response.text()
         except Exception as e:
-            logger.warning(f"⚠️  Attempt {attempt + 1} for {url} failed: {e}")
+            logger.warning(f"⚠️  Attempt {attempt + 1} for {url} failed: {e}, response: {response.text}")
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(RETRY_DELAY * (attempt + 1))
             else:

@@ -57,7 +57,7 @@ async def get_nuance_prompt():
 
 async def model(
     prompt: str,
-    model: str = "unsloth/Meta-Llama-3.1-8B-Instruct",
+    model: str = "Qwen/Qwen2.5-7B-Instruct",
     max_tokens: int = 1024,
     temperature: float = 0.0,
     top_p: float = 0.5,
