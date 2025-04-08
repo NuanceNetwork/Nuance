@@ -18,7 +18,7 @@ In this subnet, miners are rewarded for contributing factual and nuanced posts a
 
 The validator plays a crucial role in ensuring the integrity and quality of the content within the subnet. The main logic loop of the validator involves several steps:
 
-1. **Account Verification**: Miners commit their X account on-chain and update their account description with a corresponding signature.
+1. **Account Verification**: Miners commit their X account username and verification post ID on-chain. Validators verify miners by checking that the verification post quotes the Nuance announcement post and contains the miner's hotkey.
 2. **Content Discovery**: Validators query on-chain commits to retrieve miners' X accounts. They then discover new posts made by miners, filtering them through Large Language Models (LLM) to ensure the content is nuanced and relevant to specific subjects, such as bittensor.
 3. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
 4. **Scoring**: Interactions are scored based on the number of followers the interacting user has, with higher scores for more influential users.

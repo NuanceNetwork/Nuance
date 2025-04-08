@@ -13,7 +13,7 @@ from loguru import logger
 import nuance.constants as constants
 from nuance.llm import model, get_nuance_prompt
 from nuance.settings import settings
-from nuance.utils import http_request_with_retry, record_db_error, verify_signature
+from nuance.utils import http_request_with_retry, record_db_error
 
 twitter_verified_users_cache = {"verified_user_ids": set(), "last_updated": None}
 twitter_cache_lock = asyncio.Lock()
@@ -118,8 +118,28 @@ async def get_tweet(tweet_id: str) -> dict:
         data = await http_request_with_retry(session, "GET", API_URL, headers=headers)
         logger.info(f"✅ Fetched tweet {tweet_id}.")
         return data
-
-
+    
+    
+async def verify_account(commit: SimpleNamespace) -> bool:
+    """
+    Verify twitter account by checking its verification post
+    """
+    if commit.verification_post_id:
+        try:
+            post = await get_tweet(commit.verification_post_id)
+            # Check if username is correct
+            assert post["user"]["username"] == commit.account_id
+            # Check if miner 's hotkey is in the post text
+            assert commit.hotkey in post["text"]
+            # Check if the post quotes the Nuance announcement post
+            assert post["is_quote_tweet"] == True
+            assert post["quoted_status_id"] == constants.NUANCE_ANNOUNCEMENT_POST_ID
+            return True
+        except Exception as e:
+            logger.error(f"❌ Error verifying account {commit.account_id}: {e}")
+            return False
+    return False
+    
 async def process_reply(
     reply: dict,
     commit: SimpleNamespace,
@@ -181,14 +201,14 @@ async def process_reply(
         parent_text = parent_tweet.get("text", "")
         parent_hotkey_sig = parent_tweet["user"].get("description", "")
 
-        # 3. Signature verification
-        if not verify_signature(commit.hotkey, parent_hotkey_sig, commit.account_id):
-            logger.warning(
-                f"❌ Signature verification failed for {commit.hotkey} on tweet {parent_id}."
-            )
-            raise Exception(
-                f"Signature verification failed for {commit.hotkey} on tweet {parent_id}."
-            )
+        # 3. Signature verification (we no longer do this because we already verified the account before processing the reply)
+        # if not verify_signature(commit.hotkey, parent_hotkey_sig, commit.account_id):
+        #     logger.warning(
+        #         f"❌ Signature verification failed for {commit.hotkey} on tweet {parent_id}."
+        #     )
+        #     raise Exception(
+        #         f"Signature verification failed for {commit.hotkey} on tweet {parent_id}."
+        #     )
 
         # 4. Post content checking
         # Check if post already exists in db
