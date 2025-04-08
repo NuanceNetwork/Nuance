@@ -196,11 +196,10 @@ async def process_reply(
             logger.info(f"🗑️  Tweet {parent_id} seen, skipping content check.")
             if (
                 db["parent_tweets"][parent_id]["nuance_accepted"]
-                and db["parent_tweets"][parent_id]["bittensor_relevance_accepted"]
             ):
                 # Update parent tweet
                 parent_tweet["nuance_accepted"] = True
-                parent_tweet["bittensor_relevance_accepted"] = True
+                parent_tweet["bittensor_relevance_accepted"] = db["parent_tweets"][parent_id]["bittensor_relevance_accepted"]
                 db["parent_tweets"][parent_id] = parent_tweet
             else:
                 logger.info(
@@ -234,14 +233,12 @@ async def process_reply(
             if llm_response.strip().lower() != "true":
                 db["parent_tweets"][parent_id]["bittensor_relevance_accepted"] = False
                 logger.info(
-                    f"🗑️  Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
+                    f"🗑️  Parent tweet {parent_id} is not about Bittensor"
                 )
-                raise Exception(
-                    f"Parent tweet {parent_id} is not about Bittensor; skipping reply {reply_id}."
-                )
+            else:
+                parent_tweet["bittensor_relevance_accepted"] = True
             # Post accepted, add to db
             parent_tweet["nuance_accepted"] = True
-            parent_tweet["bittensor_relevance_accepted"] = True
 
         # 5. Tone checkin
         tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'positive', 'neutral', or 'negative'."
@@ -261,6 +258,8 @@ async def process_reply(
                 f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
             )
         else:
+            if parent_tweet["bittensor_relevance_accepted"]:
+                increment *= 2
             db["scores"][commit.hotkey][step_block] += increment
             logger.info(
                 f"👍 Reply {reply_id} positive/neutral. Score for {commit.hotkey} increased by {increment:.2f}."

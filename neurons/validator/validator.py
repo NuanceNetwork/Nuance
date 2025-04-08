@@ -124,7 +124,7 @@ class Validator:
                             await asyncio.gather(*tasks, return_exceptions=True)
                         except Exception as commit_e:
                             error_msg = (
-                                f"❌ Error processing commit {commit.hotkey}: {commit_e}"
+                                f"❌ Error processing commit {commit.hotkey}: {traceback.format_exc()}"
                             )
                             logger.error(error_msg)
                             record_db_error(db, error_msg)
