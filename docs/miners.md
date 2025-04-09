@@ -43,35 +43,20 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     btcli subnets show
     ```
 
-4. Set up your X account with the required signature
+4. Create a verification post on your X account
 
-    This step is crucial - validators will verify your X account using this signature.
+    This step is crucial - validators will verify your X account using this post.
     
-    ```python
-    # Generate your signature using Python
-    import bittensor as bt
-
-    # Initialize wallet
-    wallet = bt.wallet(
-        path='your_wallet_path',
-        name='your_wallet_name', 
-        hotkey='your_hotkey_name'
-    )
-
-    # X account username to sign
-    x_account_username = 'your_x_username'
-
-    # Generate signature
-    signature = '0x' + wallet.hotkey.sign(x_account_username).hex()
-
-    # Print results
-    print(f'X Username: {x_account_username}')
-    print(f'Signature: {signature}')
+    - Ensure your X account is public and has posting activity
+    - Create a new post that **quotes** the [Nuance announcement post](https://x.com/NuanceSubnet/status/1909263356654952674)
+    - Include your hotkey address in the post text
+    
+    Example post text:
+    ```
+    I'm joining the Nuance Network as a miner with hotkey: 5F7nTtN...XhVVi
     ```
     
-    Update your X account profile:
-    - Add the generated signature to your X account's description/bio
-    - Make sure your X account is public and has posting activity
+    Save the verification post ID as you'll need it for the next step.
     
 5. Commit your X account to the chain
 
@@ -86,13 +71,13 @@ To set up a miner node on the Nuance Subnet, follow these steps:
         --wallet.hotkey "your_hotkey_name" \
         --subtensor.network finney
     
-    # When prompted, enter your X account username
+    # When prompted, enter your X account username and verification post ID
     ```
 
 ## Maintaining Your Miner Status
 
 - Keep your X account active by posting content relevant to Bittensor
-- Ensure your signature remains in your profile description
+- Make sure your verification post remains accessible
 - Validators will automatically score your content based on the subnet's criteria
 
 ## Troubleshooting
@@ -100,6 +85,9 @@ To set up a miner node on the Nuance Subnet, follow these steps:
 If you encounter issues:
 
 - Verify your wallet is registered: `btcli subnets show`
-- Check your X account is properly set up with the signature
+- Check that your verification post:
+  - Is public and accessible
+  - Contains your exact hotkey address
+  - Is a quote tweet of the Nuance announcement post
 - Ensure your X account is public and active
-- Try recommitting your X account username if validators aren't picking up your content
+- Try recommitting your X account username and verification post ID if validators aren't picking up your content

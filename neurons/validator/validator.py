@@ -111,6 +111,12 @@ class Validator:
 
                     for commit in commits.values():
                         try:
+                            # Try to verify the account commited by miner
+                            verified_commit = await twitter.verify_account(commit)
+                            if not verified_commit:
+                                logger.info(f"❌ Account {commit.account_id} from hotkey {commit.hotkey} is not verified; skipping.")
+                                continue
+                            # Get all replies for the account
                             replies = await twitter.get_all_replies(commit.account_id)
                             logger.info(
                                 f"💬 Found {len(replies)} replies for account {commit.account_id}."
