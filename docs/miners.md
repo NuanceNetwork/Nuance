@@ -79,6 +79,7 @@ To set up a miner node on the Nuance Subnet, follow these steps:
 - Keep your X account active by posting content relevant to Bittensor
 - Make sure your verification post remains accessible
 - Validators will automatically score your content based on the subnet's criteria
+- Checkout [miner tips](../examples/miner_tips.ipynb) for Nuance Subnet
 
 ## Troubleshooting
 
