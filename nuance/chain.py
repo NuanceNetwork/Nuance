@@ -139,18 +139,8 @@ def update_weights(
     alpha_burn_weights[owner_hotkey_index] = 1
 
     # Combine weights
-    # Alpha burn ratio drop by day in 9 days from 0.9 2025/04/07 to 0.0 2025/04/16 and then stay 0.0
-    # Calculate the ratio for the current day
-    days_since_start = (
-        datetime.datetime.now(datetime.timezone.utc)
-        - datetime.datetime(2025, 4, 7, tzinfo=datetime.timezone.utc)
-    ).days
-    if days_since_start < 0:
-        alpha_burn_ratio = 0.9
-    elif days_since_start > 9:
-        alpha_burn_ratio = 0.0
-    else:
-        alpha_burn_ratio = 0.9 - (0.9 * days_since_start / 9)
+    # Alpha burn ratio is now 70% until next update
+    alpha_burn_ratio = 0.7
 
     # Combine weights
     combined_weights = [
