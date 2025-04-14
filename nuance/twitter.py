@@ -212,16 +212,16 @@ async def process_reply(
 
         # 4. Post content checking
         # Check if post already exists in db
-        if parent_id in db["parent_tweets"]:
+        if parent_id in db["parent_tweets"] and \
+            db["parent_tweets"][parent_id].get("nuance_accepted") is not None and \
+            db["parent_tweets"][parent_id].get("bittensor_relevance_accepted") is not None:
             logger.info(f"🗑️  Tweet {parent_id} seen, skipping content check.")
-            if (
-                db["parent_tweets"][parent_id]["nuance_accepted"]
-            ):
+            if db["parent_tweets"][parent_id].get("nuance_accepted"):
                 # Update parent tweet
                 parent_tweet["nuance_accepted"] = True
                 parent_tweet["bittensor_relevance_accepted"] = db["parent_tweets"][parent_id]["bittensor_relevance_accepted"]
                 db["parent_tweets"][parent_id] = parent_tweet
-            else:
+            elif not db["parent_tweets"][parent_id].get("nuance_accepted"):
                 logger.info(
                     f"🗑️  Parent tweet {parent_id} not accepted, skipping reply {reply_id}."
                 )
@@ -244,6 +244,9 @@ async def process_reply(
                 raise Exception(
                     f"Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}."
                 )
+            else:
+                logger.info(f"✅ Parent tweet {parent_id} is nuanced.")
+                parent_tweet["nuance_accepted"] = True
 
             # 4.2 Check if the parent tweet is about Bittensor
             prompt_about = nuance_prompt["bittensor_relevance_prompt"].format(
@@ -256,6 +259,7 @@ async def process_reply(
                     f"🗑️  Parent tweet {parent_id} is not about Bittensor"
                 )
             else:
+                logger.info(f"✅ Parent tweet {parent_id} is about Bittensor")
                 parent_tweet["bittensor_relevance_accepted"] = True
             # Post accepted, add to db
             parent_tweet["nuance_accepted"] = True
