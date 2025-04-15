@@ -140,7 +140,12 @@ def update_weights(
 
     # Combine weights
     # Alpha burn ratio is now 70% until next update
-    alpha_burn_ratio = 0.7
+    if datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2025, 4, 17, tzinfo=datetime.timezone.utc):
+        alpha_burn_ratio = 0.9
+    elif datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2025, 4, 18, tzinfo=datetime.timezone.utc):
+        alpha_burn_ratio = 0.7
+    else:
+        alpha_burn_ratio = 0.3
 
     # Combine weights
     combined_weights = [
