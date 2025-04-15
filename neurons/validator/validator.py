@@ -116,6 +116,8 @@ class Validator:
                             if not verified_commit:
                                 logger.info(f"❌ Account {commit.account_id} from hotkey {commit.hotkey} is not verified; skipping.")
                                 continue
+                            else: 
+                                logger.info(f"✅ Account {commit.account_id} from hotkey {commit.hotkey} is verified; processing replies.")
                             # Get all replies for the account
                             replies = await twitter.get_all_replies(commit.account_id)
                             logger.info(
