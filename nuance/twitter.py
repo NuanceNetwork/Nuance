@@ -229,7 +229,6 @@ async def process_reply(
                     f"Parent tweet {parent_id} not accepted, skipping reply {reply_id}."
                 )
         else:
-            db["parent_tweets"][parent_id] = parent_tweet
             nuance_prompt = await get_nuance_prompt()
             # 4.1 Nuance checking
             prompt_nuance = nuance_prompt["post_evaluation_prompt"].format(
@@ -246,23 +245,24 @@ async def process_reply(
                 )
             else:
                 logger.info(f"✅ Parent tweet {parent_id} is nuanced.")
+                # Post accepted, add to db
                 parent_tweet["nuance_accepted"] = True
 
-            # 4.2 Check if the parent tweet is about Bittensor
-            prompt_about = nuance_prompt["bittensor_relevance_prompt"].format(
-                tweet_text=parent_text
-            )
-            llm_response = await model(prompt_about, keypair=keypair)
-            if llm_response.strip().lower() != "true":
-                db["parent_tweets"][parent_id]["bittensor_relevance_accepted"] = False
-                logger.info(
-                    f"🗑️  Parent tweet {parent_id} is not about Bittensor"
+            # 4.2 Check if the parent tweet is related to topics
+            db["parent_tweets"][parent_id].setdefault("topics", [])
+            for topic in constants.TOPICS:
+                prompt_about = nuance_prompt["topic_relevance_prompts"][topic].format(
+                    tweet_text=parent_text
                 )
-            else:
-                logger.info(f"✅ Parent tweet {parent_id} is about Bittensor")
-                parent_tweet["bittensor_relevance_accepted"] = True
-            # Post accepted, add to db
-            parent_tweet["nuance_accepted"] = True
+                llm_response = await model(prompt_about, keypair=keypair)
+                
+                if llm_response.strip().lower() != "true":
+                    logger.info(
+                        f"🗑️  Parent tweet {parent_id} is not about {topic}"
+                    )
+                else:
+                    logger.info(f"✅ Parent tweet {parent_id} is about {topic}")
+                    db["parent_tweets"][parent_id]["topics"].append(topic) 
 
         # 5. Tone checkin
         tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'positive', 'neutral', or 'negative'."
@@ -282,7 +282,7 @@ async def process_reply(
                 f"👎 Reply {reply_id} negative. Score for {commit.hotkey} decreased by {increment:.2f}."
             )
         else:
-            if parent_tweet["bittensor_relevance_accepted"]:
+            if len(parent_tweet.get("topics", [])) > 0:
                 increment *= 2
             db["scores"][commit.hotkey][step_block] += increment
             logger.info(
