@@ -10,3 +10,8 @@ NUANCE_CONSTITUTION_STORE_URL = "https://raw.githubusercontent.com/NuanceNetwork
 NUANCE_CONSTITUTION_UPDATE_INTERVAL = 3600 # 1 hour
 
 NUANCE_ANNOUNCEMENT_POST_ID = "1909263356654952674"
+
+TOPICS = [
+    "bittensor",
+    "nuance_subnet"
+]

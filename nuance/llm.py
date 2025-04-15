@@ -25,28 +25,34 @@ async def get_nuance_prompt():
             post_evaluation_prompt_url = (
                 constants.NUANCE_CONSTITUTION_STORE_URL + "post_evaluation_prompt.txt"
             )
-            bittensor_relevance_prompt_url = (
-                constants.NUANCE_CONSTITUTION_STORE_URL
-                + "topic_relevance_prompts/bittensor_prompt.txt"
-            )
-
-            async with aiohttp.ClientSession() as session:
-                (
-                    post_evaluation_prompt_data,
-                    bittensor_relevance_prompt_data,
-                ) = await asyncio.gather(
-                    http_request_with_retry(session, "GET", post_evaluation_prompt_url),
-                    http_request_with_retry(
-                        session, "GET", bittensor_relevance_prompt_url
-                    ),
+            topic_relevance_prompt_urls = {}
+            for topic in constants.TOPICS:
+                topic_relevance_prompt_urls[topic] = (
+                    constants.NUANCE_CONSTITUTION_STORE_URL
+                    + f"topic_relevance_prompts/{topic}_prompt.txt"
                 )
 
+            async with aiohttp.ClientSession() as session:
+                
+                post_evaluation_prompt_data = await http_request_with_retry(session, "GET", post_evaluation_prompt_url)
+                
+                topic_relevance_prompt_data = await asyncio.gather(
+                    *[
+                        http_request_with_retry(
+                            session, "GET", topic_relevance_prompt_urls[topic]
+                        )
+                        for topic in constants.TOPICS
+                    ]
+                )
+                
                 post_evaluation_prompt = post_evaluation_prompt_data
-                bittensor_relevance_prompt = bittensor_relevance_prompt_data
-
+                topic_relevance_prompts_data_dict = {
+                    topic: data for topic, data in zip(constants.TOPICS, topic_relevance_prompt_data)
+                }
+                
             nuance_prompt_cache["nuance_prompt"] = {
                 "post_evaluation_prompt": post_evaluation_prompt,
-                "bittensor_relevance_prompt": bittensor_relevance_prompt,
+                "topic_relevance_prompts": topic_relevance_prompts_data_dict,
             }
             nuance_prompt_cache["last_updated"] = current_time
         except Exception as e:
