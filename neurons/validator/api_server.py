@@ -79,8 +79,8 @@ async def run_api_server(db_filename: str, port: int, shutdown_event: asyncio.Ev
     app.router.add_get("/hotkey/{hotkey}", handle_hotkey)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "127.0.0.1", port)
-    logger.info(f"🚀 API server starting on http://127.0.0.1:{port}")
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    logger.info(f"🚀 API server starting on http://0.0.0.0:{port}")
     await site.start()
     while not shutdown_event.is_set():
         await asyncio.sleep(1)

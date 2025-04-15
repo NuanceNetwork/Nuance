@@ -215,12 +215,17 @@ async def process_reply(
         if parent_id in db["parent_tweets"] and \
             db["parent_tweets"][parent_id].get("nuance_accepted") is not None and \
             db["parent_tweets"][parent_id].get("bittensor_relevance_accepted") is not None:
+        if parent_id in db["parent_tweets"] and \
+            db["parent_tweets"][parent_id].get("nuance_accepted") is not None and \
+            db["parent_tweets"][parent_id].get("bittensor_relevance_accepted") is not None:
             logger.info(f"🗑️  Tweet {parent_id} seen, skipping content check.")
+            if db["parent_tweets"][parent_id].get("nuance_accepted"):
             if db["parent_tweets"][parent_id].get("nuance_accepted"):
                 # Update parent tweet
                 parent_tweet["nuance_accepted"] = True
                 parent_tweet["bittensor_relevance_accepted"] = db["parent_tweets"][parent_id]["bittensor_relevance_accepted"]
                 db["parent_tweets"][parent_id] = parent_tweet
+            elif not db["parent_tweets"][parent_id].get("nuance_accepted"):
             elif not db["parent_tweets"][parent_id].get("nuance_accepted"):
                 logger.info(
                     f"🗑️  Parent tweet {parent_id} not accepted, skipping reply {reply_id}."
