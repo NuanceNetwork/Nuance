@@ -1,56 +1,90 @@
 ```mermaid
-%%{init: {
-  'theme': 'base',
-  'themeVariables': {
-    'fontSize': '20px',
-    'nodeFontSize': '18px',
-    'edgeLabelFontSize': '16px'
-  },
-  'viewBox': '0 0 2000 1500',
-  'flowchart': { 'nodeSpacing': 200, 'rankSpacing': 60 }
-}}%%
-
 classDiagram
-    class SocialPlatform {
-        <<Interface>>
-        +get_posts(account_id: str) List[Post]
-        +get_interactions(post_id: str) List[Interaction]
-        +verify_account(account_id: str) bool
+    class NuanceValidator {
+        -ChainInterface chain
+        -SocialContentProvider social
+        -Dict pipelines
+        +initialize()
+        +process_commit()
+        +main_loop()
+        +run()
     }
-
-    class TwitterPlatform {
-        +get_posts()
-        +get_interactions()
+    
+    class ChainInterface {
+        -subtensor
+        -metagraph
+        +initialize()
+        +get_current_block()
+        +get_commitments()
+        +calculate_weights()
+        +set_weights()
+    }
+    
+    class SocialContentProvider {
+        -Dict discovery_strategies
         +verify_account()
-        -_handle_rate_limit()
+        +discover_content()
+        +get_post()
     }
-
+    
+    class BaseDiscoveryStrategy {
+        <<abstract>>
+        +discover_new_contents()
+        +verify_account_ownership()
+    }
+    
+    class TwitterDiscoveryStrategy {
+        -TwitterPlatform platform
+        +discover_new_contents()
+        +verify_account_ownership()
+        +get_verified_users()
+    }
+    
+    class BasePlatform {
+        <<abstract>>
+        +get_post()
+        +get_account_posts()
+        +get_account_interactions()
+    }
+    
+    class TwitterPlatform {
+        +get_post()
+        +get_account_posts()
+        +get_account_interactions()
+    }
+    
     class ProcessingPipeline {
-        +process(content: Content) Score
-        -steps: List[Processor]
-        +add_step(processor: Processor)
+        -List processors
+        +process()
     }
-
-    class BlockchainInterface {
-        <<Facade>>
-        +get_registered_miners() List[Miner]
-        +submit_scores(scores: Dict[str, float])
-        -_connect_to_chain()
+    
+    class NuanceChecker {
+        +get_nuance_prompt()
+        +process()
     }
-
-    class DatabaseClient {
-        <<Repository>>
-        +save_post(post: Post)
-        +get_processed_content() List[ProcessedContent]
-        +update_validator_state()
+    
+    class TopicTagger {
+        +get_topic_prompts()
+        +process()
     }
-
-    SocialPlatform <|-- TwitterPlatform
-    ProcessingPipeline *-- Processor
-    BlockchainInterface ..> BittensorLib : uses
-    DatabaseClient ..> SQLAlchemy : uses
-
-    note for SocialPlatform "Strategy Pattern implementation\nAsync/await methods"
-    note for BlockchainInterface "Facade pattern for blockchain complexity\nUses official bittensor-py SDK"
-    note for ProcessingPipeline "Chain of Responsibility pattern\nDynamic pipeline construction"
+    
+    class LLMService {
+        +query()
+    }
+    
+    NuanceValidator --> ChainInterface : uses
+    NuanceValidator --> SocialContentProvider : uses
+    NuanceValidator --> ProcessingPipeline : uses
+    
+    SocialContentProvider --> BaseDiscoveryStrategy : uses
+    BaseDiscoveryStrategy <|-- TwitterDiscoveryStrategy : implements
+    
+    TwitterDiscoveryStrategy --> TwitterPlatform : uses
+    BasePlatform <|-- TwitterPlatform : implements
+    
+    ProcessingPipeline --> NuanceChecker : contains
+    ProcessingPipeline --> TopicTagger : contains
+    
+    NuanceChecker --> LLMService : uses
+    TopicTagger --> LLMService : uses
 ```

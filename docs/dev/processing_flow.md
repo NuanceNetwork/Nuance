@@ -1,46 +1,49 @@
 ```mermaid
-%%{init: {
-  'theme': 'base',
-  'themeVariables': {
-    'fontSize': '20px',
-    'nodeFontSize': '18px',
-    'edgeLabelFontSize': '16px'
-  },
-  'viewBox': '0 0 2000 1500',
-  'flowchart': { 'nodeSpacing': 200, 'rankSpacing': 60 }
-}}%%
-
-flowchart TD
-    BCI["Blockchain Input
-    (bittensor-py library)"] --> CD[Content Discovery]
+sequenceDiagram
+    participant Chain as Bittensor Chain
+    participant Validator as NuanceValidator
+    participant SCP as SocialContentProvider
+    participant Platform as Social Platform
+    participant PP as Post Pipeline
+    participant IP as Interaction Pipeline
+    participant LLM as LLM Service
+    participant DB as Database
     
-    subgraph Pipeline[Async Processing Pipeline]
-        CD -->|Raw Data| Norm["Normalization
-        (pandas/pydantic)"]
-        Norm --> FC["Fact-Checking
-        (transformers)"]
-        Norm --> EA["Engagement Analysis
-        (custom logic)"]
-        Norm --> SA["Sentiment Analysis
-        (nltk/spacy)"]
+    Validator->>Chain: get_commitments()
+    Chain-->>Validator: commits
+    
+    loop For each commit
+        Validator->>SCP: verify_account(commit)
+        SCP->>Platform: verify_account_ownership()
+        Platform-->>SCP: verification result
+        SCP-->>Validator: verified (yes/no)
+        
+        alt Account verified
+            Validator->>SCP: discover_content(commit)
+            SCP->>Platform: get posts & interactions
+            Platform-->>SCP: posts, interactions
+            SCP-->>Validator: content
+            
+            loop For each post
+                Validator->>PP: process(post)
+                PP->>LLM: query for nuance check
+                LLM-->>PP: result
+                PP->>LLM: query for topic tagging
+                LLM-->>PP: result
+                PP-->>Validator: processing result
+                Validator->>DB: store processed post
+            end
+            
+            loop For each interaction
+                Validator->>IP: process(interaction + parent_post)
+                IP->>LLM: query for sentiment analysis
+                LLM-->>IP: result
+                IP-->>Validator: processing result with score
+                Validator->>DB: update scores
+            end
+        end
     end
-
-    FC -->|Fact Scores| SC["Score Calculation"]
-    EA -->|Engagement Metrics| SC
-    SA -->|Sentiment Scores| SC
     
-    SC -->|Final Scores| BCO["Blockchain Output
-    (bittensor-py)"]
-    SC -->|Detailed Results| DB["PostgreSQL
-    (asyncpg)"]
-    
-    CD -->|API Calls| TW[[Twitter API]]
-    TW -->|JSON Responses| CD
-
-    classDef external fill:#f9f,stroke:#333;
-    classDef process fill:#7af,stroke:#333;
-    classDef storage fill:#ffa,stroke:#333;
-    class BCI,BCO,TW external;
-    class CD,Norm,FC,EA,SA,SC process;
-    class DB storage;
+    Validator->>Chain: calculate & set weights
+    Chain-->>Validator: confirmation
 ```
