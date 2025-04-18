@@ -139,13 +139,11 @@ def update_weights(
     alpha_burn_weights[owner_hotkey_index] = 1
 
     # Combine weights
-    # Alpha burn ratio is now 70% until next update
-    if datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2025, 4, 17, tzinfo=datetime.timezone.utc):
-        alpha_burn_ratio = 0.9
-    elif datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2025, 4, 18, tzinfo=datetime.timezone.utc):
-        alpha_burn_ratio = 0.7
+    # Alpha burn ratio 95% until 2025/04/25 then stay at 70%
+    if datetime.datetime.now(datetime.timezone.utc) < datetime.datetime(2025, 4, 25, tzinfo=datetime.timezone.utc):
+        alpha_burn_ratio = 0.95
     else:
-        alpha_burn_ratio = 0.3
+        alpha_burn_ratio = 0.7
 
     # Combine weights
     combined_weights = [
