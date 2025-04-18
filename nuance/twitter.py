@@ -236,7 +236,7 @@ async def process_reply(
             )
             llm_response = await model(prompt_nuance, keypair=keypair)
             if llm_response.strip().lower() != "approve":
-                db["parent_tweets"][parent_id]["nuance_accepted"] = False
+                parent_tweet["nuance_accepted"] = False
                 logger.info(
                     f"🗑️  Parent tweet {parent_id} is not nuanced; skipping reply {reply_id}."
                 )
@@ -249,7 +249,7 @@ async def process_reply(
                 parent_tweet["nuance_accepted"] = True
 
             # 4.2 Check if the parent tweet is related to topics
-            db["parent_tweets"][parent_id].setdefault("topics", [])
+            parent_tweet.setdefault("topics", [])
             for topic in constants.TOPICS:
                 prompt_about = nuance_prompt["topic_relevance_prompts"][topic].format(
                     tweet_text=parent_text
@@ -262,7 +262,9 @@ async def process_reply(
                     )
                 else:
                     logger.info(f"✅ Parent tweet {parent_id} is about {topic}")
-                    db["parent_tweets"][parent_id]["topics"].append(topic) 
+                    parent_tweet["topics"].append(topic) 
+            # Parent tweet processed, add to db
+            db["parent_tweets"][parent_id] = parent_tweet
 
         # 5. Tone checkin
         tone_prompt_template = "Analyze the following Twitter conversation:\n\nOriginal Tweet: {parent_text}\n\nReply Tweet: {child_text}\n\nIs the reply positive, supportive, or constructive towards the original tweet? Respond with only 'positive', 'neutral', or 'negative'."
