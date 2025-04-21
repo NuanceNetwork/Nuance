@@ -1,49 +1,48 @@
 ```mermaid
-%%{init: {'theme': 'neutral'}}%%
 erDiagram
-    MINERS {
-        uuid id PK
-        string blockchain_address
-        string social_handle
-        timestamp registered_at
+    Node ||--o{ PlatformAccount : "has"
+    PlatformAccount ||--o{ Post : "creates"
+    PlatformAccount ||--o{ Interaction : "performs"
+    Post ||--o{ Interaction : "receives"
+    
+    Node {
+        int id PK
+        string public_key
+        enum node_type
+        float stake
+        datetime last_active
+        json metadata
     }
     
-    POSTS {
-        uuid id PK
-        uuid miner_id FK
+    PlatformAccount {
+        int id PK
+        string platform_type
+        string account_id
+        string username
+        json metadata
+        int node_id FK
+    }
+    
+    Post {
+        int id PK
         string platform_id
-        text content
-        timestamp posted_at
-        jsonb raw_data
+        string platform_type
+        string content
+        datetime created_at
+        int account_id FK
+        json metadata
+        string processing_status
     }
-
-    INTERACTIONS {
-        uuid id PK
-        uuid post_id FK
+    
+    Interaction {
+        int id PK
+        string platform_id
         string interaction_type
-        string author_id
-        boolean verified_author
-        timestamp occurred_at
+        int post_id FK
+        int account_id FK
+        string content
+        datetime created_at
+        float score
+        string processing_status
     }
-
-    PROCESSING_RESULTS {
-        uuid id PK
-        uuid post_id FK
-        float fact_score
-        float engagement_score
-        float sentiment_score
-        timestamp processed_at
-    }
-
-    VALIDATOR_STATE {
-        uuid id PK
-        timestamp last_processed
-        jsonb ema_scores
-        jsonb processed_ids
-    }
-
-    MINERS ||--o{ POSTS : "has"
-    POSTS ||--o{ INTERACTIONS : "has"
-    POSTS ||--o{ PROCESSING_RESULTS : "has"
-    VALIDATOR_STATE }o--|| POSTS : "tracks"
 ```

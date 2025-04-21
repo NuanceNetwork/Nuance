@@ -5,13 +5,14 @@ flowchart TB
         SP[Social Platforms]
     end
     
+    DB[(Database)]
+    
     subgraph Validator["Nuance Validator"]
         CI[Chain Interface]
         SCP[Social Content Provider]
         PP[Post Pipeline]
         IP[Interaction Pipeline]
         LLM[LLM Service]
-        DB[(Database)]
     end
     
     BT <--> CI
@@ -20,7 +21,9 @@ flowchart TB
     SCP --> IP
     PP <--> LLM
     IP <--> LLM
-    PP --> DB
-    IP --> DB
-    CI <--> DB
+    
+    DB <--> CI
+    DB <--> SCP
+    DB <--> PP
+    DB <--> IP
 ```
