@@ -23,7 +23,7 @@ class BaseRepository(Generic[T, M]):
     def _domain_to_orm(self, domain_obj: M) -> T:
         raise NotImplementedError("Subclasses must implement _domain_to_orm")
     
-    async def get_by_id(self, id) -> Optional[M]:
+    async def get_one(self, id) -> Optional[M]:
         async with self.session_factory() as session:
             result = await session.get(self.model_cls, id)
             return self._orm_to_domain(result) if result else None

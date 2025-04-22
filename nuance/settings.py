@@ -11,6 +11,11 @@ class Settings(BaseSettings):
         default=False,
         description="Flag to indicate if running in testnet mode.",
     )
+    
+    # Bittensor
+    WALLET_PATH: str = Field(default="~/.bittensor/wallets", description="Path to the Bittensor wallet.")
+    WALLET_NAME: str = Field(default="default", description="Name of the Bittensor wallet.")
+    WALLET_HOTKEY: str = Field(default="default", description="Hotkey of the Bittensor wallet.")
 
     # API Keys and Secrets
     DATURA_API_KEY: str = Field(description="Datura API key.")

@@ -81,7 +81,7 @@ class TopicTagger(Processor):
 
         return self._topic_prompts_cache["prompts"]
     
-    async def process(self, post: models.Post) -> ProcessingResult:
+    async def process(self, input_data: models.Post) -> ProcessingResult[models.Post]:
         """
         Process a post by tagging it with relevant topics.
         
@@ -92,7 +92,8 @@ class TopicTagger(Processor):
             Processing result with identified topics
         """
         try:
-            post_id = post.id
+            post = input_data
+            post_id = post.post_id
             content = post.content
             
             # Get the topic prompts
@@ -128,8 +129,18 @@ class TopicTagger(Processor):
             
             # We don't fail processing if no topics are found
             logger.info(f"📋 Post {post_id} tagged with {len(identified_topics)} topics")
-            return ProcessingResult(True, post)
+            return ProcessingResult(
+                status=models.ProcessingStatus.ACCEPTED, 
+                output=post,
+                processor_name=self.processor_name,
+                details={"topics": identified_topics, "topic_count": len(identified_topics)}
+            )
                 
         except Exception as e:
             logger.error(f"❌ Error tagging topics for post {post.id}: {str(e)}")
-            return ProcessingResult(False, post, reason=f"Error tagging topics: {str(e)}")
+            return ProcessingResult(
+                status=models.ProcessingStatus.ERROR, 
+                output=post, 
+                processor_name=self.processor_name,
+                reason=f"Error tagging topics: {str(e)}"
+            )

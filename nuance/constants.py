@@ -3,6 +3,8 @@ import csv
 from loguru import logger
 from nuance.settings import settings
 
+NETUID = 23 if not settings.TESTNET else 119
+
 SCORING_HOUR = 16
 EPOCH_LENGTH = 300 if not settings.TESTNET else 50 # blocks (12s per block)
 

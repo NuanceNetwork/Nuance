@@ -1,10 +1,10 @@
 from types import SimpleNamespace
 from typing import Any, Optional
 
+import nuance.models as models
 from nuance.social.discovery.base import BaseDiscoveryStrategy
 from nuance.social.discovery.twitter import TwitterDiscoveryStrategy
 from nuance.utils.logging import logger
-
 
 class SocialContentProvider:
     """
@@ -39,7 +39,7 @@ class SocialContentProvider:
             raise ValueError(f"Unsupported platform: {platform}")
         return self.discovery_strategies[platform]
     
-    async def verify_account(self, commit: SimpleNamespace) -> tuple[bool, Optional[str]]:
+    async def verify_account(self, commit: models.Commit) -> tuple[bool, Optional[str]]:
         """
         Verify an account from a commit.
         
@@ -52,16 +52,16 @@ class SocialContentProvider:
         try:
             discovery = self._get_discovery(commit.platform)
             is_verified, error = await discovery.verify_account(
-                commit.account_id, 
-                commit.verification_post_id, 
-                commit.hotkey
+                username=commit.username,
+                verification_post_id=commit.verification_post_id,
+                hotkey=commit.hotkey
             )
             return is_verified, error
         except Exception as e:
             logger.error(f"Error verifying account: {str(e)}")
             return False, str(e)
     
-    async def discover_content(self, commit: SimpleNamespace, since_id: Optional[str] = None) -> dict[str, list[dict[str, Any]]]:
+    async def discover_content(self, commit: models.Commit, since_id: Optional[str] = None) -> dict[str, list[dict[str, Any]]]:
         """
         Discover new content (posts and interactions) for an account.
         

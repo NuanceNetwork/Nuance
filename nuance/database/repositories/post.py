@@ -17,7 +17,7 @@ class PostRepository(BaseRepository[PostORM, Post]):
             platform_type=orm_obj.platform_type,
             content=orm_obj.content,
             account_id=orm_obj.account_id,
-            metadata=orm_obj.metadata,
+            extra_data=orm_obj.extra_data,
             processing_status=orm_obj.processing_status,
             created_at=orm_obj.created_at,
             updated_at=orm_obj.updated_at
@@ -30,7 +30,7 @@ class PostRepository(BaseRepository[PostORM, Post]):
             platform_type=domain_obj.platform_type,
             content=domain_obj.content,
             account_id=domain_obj.account_id,
-            metadata=domain_obj.metadata,
+            extra_data=domain_obj.extra_data,
             processing_status=domain_obj.processing_status
         )
     
@@ -45,7 +45,7 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 )
             )
             orm_post = result.scalars().first()
-            return self._to_domain(orm_post) if orm_post else None
+            return self._orm_to_domain(orm_post) if orm_post else None
     
     async def get_pending_posts(self, limit: int = 100) -> List[Post]:
         async with self.session_factory() as session:
@@ -54,7 +54,7 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 .where(PostORM.processing_status == ProcessingStatus.PENDING)
                 .limit(limit)
             )
-            return [self._to_domain(obj) for obj in result.scalars().all()]
+            return [self._orm_to_domain(obj) for obj in result.scalars().all()]
     
     async def update_status(self, post_id: int, status: ProcessingStatus) -> bool:
         async with self.session_factory() as session:

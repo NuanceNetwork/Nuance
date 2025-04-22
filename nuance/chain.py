@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import bittensor as bt
 from bittensor.core.chain_data.utils import decode_metadata
+import nuance.models as models
 from loguru import logger
 
 
@@ -33,16 +34,16 @@ async def get_commitments(
         if commit:
             try:
                 decoded_commit = decode_metadata(commit)
-                account_id, verification_post_id = decoded_commit.split("@")
+                username, verification_post_id = decoded_commit.split("@")
             except Exception as e:
                 logger.error(f"❌ Error getting commitment for hotkey {hotkey}: {e}")
                 continue
                 
-            result[hotkey] = SimpleNamespace(
+            result[hotkey] = models.Commit(
                 uid=uid,
                 hotkey=hotkey,
-                block=commit["block"],
-                account_id=account_id,
+                platform=models.PlatformType.TWITTER,
+                username=username,
                 verification_post_id=verification_post_id,
             )
             logger.debug(f"🔍 Found commitment for hotkey {hotkey}.")

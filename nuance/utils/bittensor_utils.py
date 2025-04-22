@@ -43,6 +43,9 @@ class BittensorObjectsManager:
     async def _get_metagraph(self) -> bt.Metagraph:
         if not self._metagraph:
             logger.info("Setting up metagraph...")
+            # Make sure we have subtensor initialized
+            if not self._subtensor:
+                await self._get_subtensor()
             self._metagraph = await self._subtensor.metagraph(constants.NETUID)
             # Once metagraph is initialized, periodically update it
             asyncio.create_task(self._periodic_update_metagraph())

@@ -15,7 +15,7 @@ from nuance.processing.llm import query_llm
 
 class NuanceChecker(Processor):
     """Checks content for nuanced thinking using LLM."""
-    processor_type = "nuance_checker"
+    processor_name = "nuance_checker"
     
     # Class-level cache for nuance prompt only
     _nuance_prompt_cache: ClassVar[Dict[str, Any]] = {"prompt": None, "last_updated": None}
@@ -67,7 +67,7 @@ class NuanceChecker(Processor):
 
         return self._nuance_prompt_cache["prompt"]
     
-    async def process(self, post: models.Post) -> ProcessingResult:
+    async def process(self, input_data: models.Post) -> ProcessingResult[models.Post]:
         """
         Check if content shows nuanced thinking.
         
@@ -78,7 +78,8 @@ class NuanceChecker(Processor):
             Processing result with nuance check status
         """
         try:
-            post_id = post.id
+            post = input_data
+            post_id = post.post_id
             content = post.content
             
             # Get the nuance prompt
@@ -95,12 +96,34 @@ class NuanceChecker(Processor):
             
             if is_nuanced:
                 logger.info(f"✅ Post {post_id} is nuanced")
-                return ProcessingResult(True, post)
+                
+                # Create updated post with nuance information
+                updated_post = post.model_copy()
+                
+                return ProcessingResult(
+                    status=models.ProcessingStatus.ACCEPTED,
+                    output=updated_post, 
+                    processor_name=self.processor_name,
+                    details={"nuance_status": "approved", "llm_response": llm_response}
+                )
             else:
-                post.processing_notes = "Nuance check failed"
+                # Create updated post with rejection reason
+                updated_post = post.model_copy()
+                
                 logger.info(f"🚫 Post {post_id} is not nuanced")
-                return ProcessingResult(False, post, reason="Content lacks nuance")
+                return ProcessingResult(
+                    status=models.ProcessingStatus.REJECTED,
+                    output=updated_post, 
+                    processor_name=self.processor_name,
+                    reason="Content lacks nuance",
+                    details={"llm_response": llm_response}
+                )
                 
         except Exception as e:
-            logger.error(f"❌ Error evaluating nuance for post {post.id}: {str(e)}")
-            return ProcessingResult(False, post, reason=f"Error checking nuance: {str(e)}")
+            logger.error(f"❌ Error evaluating nuance for post {post.post_id}: {str(e)}")
+            return ProcessingResult(
+                status=models.ProcessingStatus.ERROR,
+                output=post, 
+                processor_name=self.processor_name,
+                reason=f"Error checking nuance: {str(e)}"
+            )
