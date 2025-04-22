@@ -1,3 +1,4 @@
+#nuance/database/engine.py
 import contextlib
 from typing import Any, AsyncIterator
 
@@ -6,7 +7,6 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from nuance.database.schema import Base
 from nuance.settings import settings
-
 
 
 class DatabaseSessionManager:
@@ -85,10 +85,16 @@ class DatabaseSessionManager:
 
 
 # Create global session manager instance
-sessionmanager = DatabaseSessionManager(settings.database_url)
+sessionmanager = DatabaseSessionManager(settings.database_url, settings.database_engine_kwargs)
 
 @contextlib.asynccontextmanager
 async def get_db_session() -> AsyncIterator[AsyncSession]:
     """Get a database session for dependency injection."""
     async with sessionmanager.session() as session:
         yield session
+        
+if __name__ == "__main__":
+    import asyncio
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(sessionmanager.drop_all())
+    loop.run_until_complete(sessionmanager.create_all())

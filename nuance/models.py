@@ -8,6 +8,17 @@ from pydantic import BaseModel, Field
 
 class PlatformType(str, Enum):
     TWITTER = "twitter"
+    
+    
+class ProcessingStatus(str, Enum):
+    NEW = "new"  # New and has not been processed yet
+    ACCEPTED = "accepted"  # Processed and has been accepted
+    REJECTED = "rejected"  # Processed and has been rejected
+    ERROR = "error"  # Error in processing, may retry later
+
+
+class InteractionType(str, Enum):
+    REPLY = "reply"
 
 
 class Commit(BaseModel):
@@ -19,49 +30,52 @@ class Commit(BaseModel):
     verification_post_id: str
 
 
-class Node(BaseModel):
-    hotkey: str
-    netuid: int
+# Domain models
+# These are the models that are used in the domain layer
+# All the fields that are primary keys are required
+# Relationships are optional and we don't always load them, be careful with these fields, they can create infinite recursion
 
-    # Relationships - optional since we don't always load them
+class Node(BaseModel):
+    node_hotkey: str
+    node_netuid: int
+
+    # Relationships
     social_accounts: Optional[list["SocialAccount"]] = None
 
 
 class SocialAccount(BaseModel):
     platform_type: str
     account_id: str
-    username: str
-    created_at: Optional[datetime.datetime] = None
+    account_username: Optional[str] = None
     node_hotkey: Optional[str] = None
+    node_netuid: Optional[int] = None
+    created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default_factory=dict,
+        default={},
         description="Extra data for the social account, come from platform 's object model",
     )
 
-
-class ProcessingStatus(str, Enum):
-    NEW = "new"             # New and has not been processed yet
-    ACCEPTED = "accepted"   # Processed and has been accepted
-    REJECTED = "rejected"   # Processed and has been rejected
-    ERROR = "error"         # Error in processing, may retry later
+    # Relationships
+    node: Optional["Node"] = None
+    posts: Optional[list["Post"]] = None
+    interactions: Optional[list["Interaction"]] = None
 
 
 class Post(BaseModel):
-    post_id: str = Field(..., description="The platform provided ID of the post")
     platform_type: PlatformType
-    content: str
-    account_id: int
-    content_type: Optional[str] = Field(
-        default=None,
+    post_id: str = Field(..., description="The platform provided ID of the post")
+    account_id: str
+    content: str = Field(
+        default="",
         description="Content of the post, this is now the text of the post",
     )
-    topics: Optional[list[str]] = Field(
-        default=None,
+    topics: list[str] = Field(
+        default=[],
         description="The topics that the post is about, come from the topic tagging process",
     )
-    created_at: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default_factory=dict,
+        default={},
         description="Extra data for the post, come from platform 's object model",
     )
     processing_status: ProcessingStatus = ProcessingStatus.NEW
@@ -71,11 +85,8 @@ class Post(BaseModel):
     )
 
     # Relationships
+    social_account: Optional["SocialAccount"] = None
     interactions: Optional[list["Interaction"]] = None
-
-
-class InteractionType(str, Enum):
-    REPLY = "reply"
 
 
 class Interaction(BaseModel):
@@ -87,9 +98,9 @@ class Interaction(BaseModel):
     account_id: int = Field(..., description="The ID of the account that interacted")
     post_id: int = Field(..., description="The ID of the post that got interacted with")
     content: Optional[str] = None
-    created_at: Optional[datetime.datetime] = None
+    created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default_factory=dict,
+        default={},
         description="Extra data for the interaction, come from platform 's object model",
     )
     processing_status: ProcessingStatus = ProcessingStatus.NEW
@@ -97,7 +108,7 @@ class Interaction(BaseModel):
         default=None,
         description="Notes about the processing of the interaction, for debugging purposes, contain rejection reasons if the interaction was rejected",
     )
-    
+
     # Relationships
     social_account: Optional["SocialAccount"] = None
     post: Optional["Post"] = None
