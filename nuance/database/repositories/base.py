@@ -12,8 +12,8 @@ M = TypeVar('M')  # Domain model type
 class BaseRepository(Generic[T, M]):
     """Base repository with common CRUD operations."""
     
-    def __init__(self, model_cls: Type[T], session_factory):
-        self.model_cls: Type[T] = model_cls
+    def __init__(self, session_factory):
+        self.model_cls: Type[T]
         self.session_factory: Callable[[], AsyncContextManager[AsyncSession]] = session_factory
     
     # Convert between ORM and domain models
@@ -23,14 +23,25 @@ class BaseRepository(Generic[T, M]):
     def _domain_to_orm(self, domain_obj: M) -> T:
         raise NotImplementedError("Subclasses must implement _domain_to_orm")
     
-    async def get_one(self, id) -> Optional[M]:
+    async def get_by(self, **filters) -> Optional[M]:
+        """Get a single entity by arbitrary field values."""
         async with self.session_factory() as session:
-            result = await session.get(self.model_cls, id)
-            return self._orm_to_domain(result) if result else None
+            query = sa.select(self.model_cls)
+            for field, value in filters.items():
+                query = query.filter(getattr(self.model_cls, field) == value)
+            
+            result = await session.execute(query)
+            obj = result.scalars().first()
+            return self._orm_to_domain(obj) if obj else None
     
-    async def get_all(self) -> list[M]:
+    async def find_many(self, **filters) -> list[M]:
+        """Find all entities matching the given filters."""
         async with self.session_factory() as session:
-            result = await session.execute(sa.select(self.model_cls))
+            query = sa.select(self.model_cls)
+            for field, value in filters.items():
+                query = query.filter(getattr(self.model_cls, field) == value)
+            
+            result = await session.execute(query)
             return [self._orm_to_domain(obj) for obj in result.scalars().all()]
     
     async def create(self, entity: M) -> M:

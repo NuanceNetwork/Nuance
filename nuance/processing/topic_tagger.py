@@ -16,15 +16,11 @@ from nuance.processing.llm import query_llm
 class TopicTagger(Processor):
     """Tags content with relevant topics using LLM."""
     
-    processor_type = "topic_tagger"
+    processor_name = "topic_tagger"
     
     # Class-level cache for topic prompts
     _topic_prompts_cache: ClassVar[dict[str, Any]] = {"prompts": {}, "last_updated": None}
     _topic_prompts_lock = asyncio.Lock()
-    
-    def __init__(self, name: str = "Topic Tagger"):
-        """Initialize the topic tagger."""
-        super().__init__(name)
     
     async def get_topic_prompts(self) -> dict[str, str]:
         """

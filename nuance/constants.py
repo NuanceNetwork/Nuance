@@ -17,3 +17,5 @@ TOPICS = [
     "bittensor",
     "nuance_subnet"
 ]
+
+LOG_URL = "https://log.nuance.network/api/logs"

@@ -1,23 +1,40 @@
-import orjson as json
-import queue
+import logging
 from logging.handlers import QueueHandler, QueueListener
-from loguru import logger
+import queue
+import threading
+
 import requests
+from loguru import logger
+
 import nuance.constants as constants
 
-class LoguruHTTPHandler:
+class LoguruHTTPHandler(logging.Handler):
     """HTTP log handler that works with standard QueueListener"""
-    def __init__(self, url, headers=None, timeout=5):
+    def __init__(self, url, headers=None, timeout=5, level=logging.INFO):
+        super().__init__(level=level)
         self.url = url
         self.headers = headers or {}
         self.timeout = timeout
 
-    def handle(self, record):
+    def emit(self, record: logging.LogRecord):  # Use emit instead of handle for Handler subclass
         """Process individual log records"""
         try:
+            # Get the formatted message from Loguru's record
+            formatted_message = record.getMessage()
+            
+            # Create minimal but useful log payload
+            log_data = {
+                "timestamp": record.created,
+                "level": record.levelname,
+                "message": formatted_message,
+                "source": f"{record.pathname}:{record.lineno}",
+                "thread": record.threadName,
+                "extra": getattr(record, "extra", {})  # Loguru's extra context
+            }
+            
             response = requests.post(
                 self.url,
-                json=json.loads(record),
+                json=log_data,  # Send the dict directly
                 headers=self.headers,
                 timeout=self.timeout
             )
@@ -35,7 +52,7 @@ http_handler = LoguruHTTPHandler(
 # Set up queue listener with the actual handler
 queue_listener = QueueListener(
     log_queue,
-    http_handler.handle,
+    http_handler,
     respect_handler_level=True
 )
 
@@ -47,7 +64,9 @@ logger.add(
 )
 
 # Start the listener when module is imported
-queue_listener.start()
+# This is a hack to start the listener in a separate named thread, check this code in QueueListener class 's start() method
+queue_listener._thread = log_queue_listener_thread = threading.Thread(target=queue_listener._monitor, name="HTTP Log Queue Listener", daemon=True)
+log_queue_listener_thread.start()
 
 # Ensure proper cleanup
 def stop_listener():

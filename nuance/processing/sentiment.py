@@ -8,11 +8,13 @@ from nuance.processing.base import Processor, ProcessingResult, ProcessingStatus
 from nuance.processing.llm import query_llm
 from nuance.utils.logging import logger
 
+
 # Define the context input type
 class InteractionPostContext(BaseModel):
     """Context model for interaction processing."""
     interaction: models.Interaction
     parent_post: models.Post
+
 
 class SentimentAnalyzer(Processor[InteractionPostContext, models.Interaction]):
     """Analyzes sentiment in an interaction towards its parent post."""

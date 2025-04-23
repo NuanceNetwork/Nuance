@@ -95,8 +95,8 @@ class Interaction(BaseModel):
     )
     platform_type: PlatformType
     interaction_type: InteractionType
-    account_id: int = Field(..., description="The ID of the account that interacted")
-    post_id: int = Field(..., description="The ID of the post that got interacted with")
+    account_id: str = Field(..., description="The ID of the account that interacted")
+    post_id: str = Field(..., description="The ID of the post that got interacted with")
     content: Optional[str] = None
     created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(

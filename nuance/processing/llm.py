@@ -1,12 +1,11 @@
+# nuance/processing/llm.py
 import asyncio
 import time
 from typing import ClassVar, Optional
-import traceback
 
 import aiohttp
 from loguru import logger
 
-import nuance.constants as constants
 from nuance.utils.bittensor_utils import get_wallet
 from nuance.utils.networking import async_http_request_with_retry
 from nuance.settings import settings
@@ -145,3 +144,6 @@ async def query_llm(
         top_p=top_p,
         keypair=keypair
     )
+    
+if __name__ == "__main__":
+    print(asyncio.run(query_llm("Hello, world!")))

@@ -1,48 +1,47 @@
 ```mermaid
 erDiagram
-    Node ||--o{ PlatformAccount : "has"
-    PlatformAccount ||--o{ Post : "creates"
-    PlatformAccount ||--o{ Interaction : "performs"
+    Node ||--o{ SocialAccount : "has"
+    SocialAccount ||--o{ Post : "creates"
+    SocialAccount ||--o{ Interaction : "performs"
     Post ||--o{ Interaction : "receives"
     
     Node {
-        int id PK
-        string public_key
-        enum node_type
-        float stake
-        datetime last_active
-        json metadata
+        string node_hotkey PK
+        int node_netuid PK
     }
     
-    PlatformAccount {
-        int id PK
-        string platform_type
-        string account_id
-        string username
-        json metadata
-        int node_id FK
+    SocialAccount {
+        string platform_type PK
+        string account_id PK
+        string account_username
+        string node_hotkey FK
+        int node_netuid FK
+        datetime created_at
+        json extra_data
     }
     
     Post {
-        int id PK
-        string platform_id
-        string platform_type
+        string platform_type PK
+        string post_id PK
+        string account_id FK
         string content
+        json topics
         datetime created_at
-        int account_id FK
-        json metadata
-        string processing_status
+        json extra_data
+        enum processing_status
+        string processing_note
     }
     
     Interaction {
-        int id PK
-        string platform_id
-        string interaction_type
-        int post_id FK
-        int account_id FK
+        string platform_type PK
+        string interaction_id PK
+        enum interaction_type
+        string account_id FK
+        string post_id FK
         string content
         datetime created_at
-        float score
-        string processing_status
+        json extra_data
+        enum processing_status
+        string processing_note
     }
 ```

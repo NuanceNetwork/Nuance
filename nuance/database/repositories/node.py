@@ -36,18 +36,7 @@ class NodeRepository(BaseRepository[NodeORM, Node]):
             )
             orm_node = result.scalars().first()
             return self._orm_to_domain(orm_node) if orm_node else None
-
-    async def update(self, entity: Node) -> Node:
-        async with self.session_factory() as session:
-            orm_node = await session.get(
-                NodeORM, (entity.node_hotkey, entity.node_netuid)
-            )
-            if orm_node:
-                await session.commit()
-                await session.refresh(orm_node)
-                return self._orm_to_domain(orm_node)
-            return None
-
+        
     async def upsert(self, entity: Node) -> Node:
         async with self.session_factory() as session:
             # All fields are in primary key so no update

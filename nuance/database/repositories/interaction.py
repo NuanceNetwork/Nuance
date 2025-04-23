@@ -54,27 +54,11 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
             result = await session.execute(
                 sa.select(InteractionORM)
                 .where(
-                    InteractionORM.processing_status == "processed",
                     InteractionORM.created_at >= since_date,
                 )
                 .order_by(InteractionORM.created_at.desc())
             )
 
-            return [self._orm_to_domain(obj) for obj in result.scalars().all()]
-
-    async def get_pending_interactions_for_processed_posts(
-        self, limit: int = 100
-    ) -> list[Interaction]:
-        async with self.session_factory() as session:
-            result = await session.execute(
-                sa.select(InteractionORM)
-                .join(PostORM, InteractionORM.post_id == PostORM.id)
-                .where(
-                    InteractionORM.processing_status == ProcessingStatus.PENDING,
-                    PostORM.processing_status == ProcessingStatus.PROCESSED,
-                )
-                .limit(limit)
-            )
             return [self._orm_to_domain(obj) for obj in result.scalars().all()]
 
     async def upsert(

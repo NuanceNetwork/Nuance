@@ -21,10 +21,6 @@ class NuanceChecker(Processor):
     _nuance_prompt_cache: ClassVar[Dict[str, Any]] = {"prompt": None, "last_updated": None}
     _nuance_prompt_lock = asyncio.Lock()
     
-    def __init__(self, name: str = "Nuance Checker"):
-        """Initialize the nuance checker."""
-        super().__init__(name)
-    
     async def get_nuance_prompt(self) -> str:
         """
         Get nuance evaluation prompt with caching.

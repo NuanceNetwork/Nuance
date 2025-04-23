@@ -1,9 +1,9 @@
 from typing import Any, Optional, Type 
 
-import nuance.models as models
 from nuance.processing.base import Processor, ProcessingResult
 from nuance.processing.nuance_check import NuanceChecker
 from nuance.processing.topic_tagger import TopicTagger
+from nuance.processing.sentiment import SentimentAnalyzer
 
     
 class Pipeline:
@@ -89,31 +89,16 @@ class Pipeline:
                 f"but got {type(input_data).__name__}"
             )
         
-        processing_notes = []
+        processing_details = {}
         current_data = input_data
         
         for processor in self.processors:
             result = await processor.process(current_data)
-            processing_notes.append(result.processing_note)
-            
-            if not result.success:
-                combined_result = ProcessingResult(
-                    success=False,
-                    output=current_data,
-                    processor_name="Pipeline",
-                    reason=result.reason
-                )
-                combined_result.processing_note = "\n".join(processing_notes)
-                return combined_result
-            
-            current_data = result.output
+            processing_details[processor.processor_name] = result.processing_note
         
-        final_result = ProcessingResult(
-            success=True,
-            output=current_data,
-            processor_name="Pipeline"
-        )
-        final_result.processing_note = "\n".join(processing_notes)
+        # TODO: Processing result is not suitable for pipeline result, refine this
+        final_result = result
+        final_result.details = processing_details
         return final_result
 
 
@@ -121,7 +106,7 @@ class PipelineFactory:
     """Factory for creating processing pipelines."""
     
     @staticmethod
-    def create_post_pipeline() -> Pipeline[models.Post]:
+    def create_post_pipeline() -> Pipeline:
         """Create pipeline for processing posts."""
         pipeline = Pipeline()
         pipeline.register(NuanceChecker())
@@ -129,9 +114,13 @@ class PipelineFactory:
         return pipeline
     
     @staticmethod
-    def create_interaction_pipeline() -> Pipeline[models.Interaction]:
+    def create_interaction_pipeline() -> Pipeline:
         """Create pipeline for processing interactions."""
         pipeline = Pipeline()
-        # pipeline.register(SentimentAnalyzer())
-        # Add more interaction processors
+        pipeline.register(SentimentAnalyzer())
         return pipeline
+    
+if __name__ == "__main__":
+    print(PipelineFactory.create_post_pipeline())
+    print(PipelineFactory.create_interaction_pipeline())
+    
