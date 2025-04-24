@@ -25,10 +25,10 @@ class DatabaseSessionManager:
     def __init__(self, db_url: str, engine_kwargs: dict[str, Any] = None):
         if self._initialized:
             return
-            
+        
         self._engine = create_async_engine(
             db_url, 
-            **(engine_kwargs or {"echo": settings.debug})
+            **engine_kwargs
         )
         self._sessionmaker = async_sessionmaker(
             autocommit=False, 

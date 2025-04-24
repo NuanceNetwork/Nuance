@@ -28,17 +28,24 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             "last_updated": None,
         }
         self._cache_lock = asyncio.Lock()
+        
+    async def get_post(self, post_id: str) -> models.Post:
+        raw_post = await self.platform.get_post(post_id)
+        return _tweet_to_post(raw_post)
 
-    async def discover_new_posts(self, username: str) -> list[dict]:
+    async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:
-            return await self.platform.get_all_posts(username)
+            raw_posts = await self.platform.get_all_posts(username)
+            return [_tweet_to_post(post) for post in raw_posts]
         except Exception as e:
             logger.error(
                 f"❌ Error discovering new posts for {username}: {traceback.format_exc()}"
             )
             return []
 
-    async def discover_new_interactions(self, username: str) -> list[models.Interaction]:
+    async def discover_new_interactions(
+        self, username: str
+    ) -> list[models.Interaction]:
         """
         Discover new interactions for a Twitter account. This method currently only discovers replies.
         """
@@ -102,13 +109,14 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
 
         return self._verified_users_cache["verified_user_ids"]
 
-    async def discover_new_contents(self, username: str) -> dict[str, list[dict]]:
+    async def discover_new_contents(
+        self, username: str
+    ) -> dict[str, list[models.Post | models.Interaction]]:
         """
         Discover new content (posts and interactions) for a Twitter account.
 
         Args:
-            account_id: Twitter username
-            since_id: Optional ID to fetch content newer than this
+            username: Twitter username
 
         Returns:
             Dictionary with "posts" and "interactions" keys
@@ -120,7 +128,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             # Filter replies
             verified_replies = []
             for reply in all_replies:
-                reply_id = reply.platform_id
+                reply_id = reply.interaction_id
                 # 1.1 Check if the reply comes from a verified username using the CSV list using user id.
                 verified_user_ids = await self.get_verified_users()
                 if reply.account_id not in verified_user_ids:
@@ -131,7 +139,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
 
                 # 1.2 Check if the reply comes from an account younger than 1 year.
                 account_created_at = datetime.datetime.strptime(
-                    reply["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
+                    reply.extra_data["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
                 )
                 account_age = (
                     datetime.datetime.now(datetime.timezone.utc) - account_created_at
@@ -144,14 +152,13 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 verified_replies.append(reply)
             # Get parent posts of the replies, these are considered as new posts
             all_parent_post_ids = [
-                reply.post_id
-                for reply in all_replies
-                if reply.post_id is not None
+                reply.post_id for reply in all_replies if reply.post_id is not None
             ]
 
             posts = await asyncio.gather(
                 *[self.platform.get_post(post_id) for post_id in all_parent_post_ids]
             )
+            posts = [_tweet_to_post(post) for post in posts]
 
             return {"posts": posts, "interactions": verified_replies}
 
@@ -199,9 +206,9 @@ def _twitter_user_to_social_account(
     return models.SocialAccount(
         platform_type=models.PlatformType.TWITTER,
         account_id=user.get("id"),
-        username=user.get("username"),
-        node_hotkey=node.hotkey if node else None,
-        node_netuid=node.netuid if node else None,
+        account_name=user.get("username"),
+        node_hotkey=node.node_hotkey if node else None,
+        node_netuid=node.node_netuid if node else None,
     )
 
 
@@ -210,11 +217,13 @@ def _tweet_to_post(tweet: dict) -> models.Post:
     Convert a Twitter tweet dictionary to a Post object.
     """
     return models.Post(
-        id=tweet.get("id"),
-        platform_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
-        content=tweet.get("text"),
+        post_id=tweet.get("id"),
         account_id=tweet.get("user", {}).get("id"),
+        content=tweet.get("text"),
+        created_at=datetime.datetime.strptime(
+            tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
+        ).astimezone(datetime.timezone.utc),
         extra_data=tweet,
     )
 
@@ -224,12 +233,14 @@ def _reply_tweet_to_interaction(tweet: dict) -> models.Interaction:
     Convert a Twitter tweet dictionary to an Interaction object.
     """
     return models.Interaction(
-        id=tweet.get("id"),
-        platform_id=tweet.get("id"),
+        interaction_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
         interaction_type=models.InteractionType.REPLY,
+        account_id=tweet.get("user", {}).get("id"),
         post_id=tweet.get("in_reply_to_status_id"),
         content=tweet.get("text"),
-        account_id=tweet.get("user", {}).get("id"),
+        created_at=datetime.datetime.strptime(
+            tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
+        ).astimezone(datetime.timezone.utc),
         extra_data=tweet,
     )

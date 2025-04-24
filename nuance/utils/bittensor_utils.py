@@ -35,7 +35,7 @@ class BittensorObjectsManager:
         if not self._subtensor:
             logger.info("Setting up subtensor...")
             self._subtensor = bt.async_subtensor(
-                config=bt.config(config_dir=os.path.expanduser("~/.bittensor/subtensor"))
+                network=settings.SUBTENSOR_NETWORK,
             )
             await self._subtensor.initialize()
         return self._subtensor
@@ -46,7 +46,7 @@ class BittensorObjectsManager:
             # Make sure we have subtensor initialized
             if not self._subtensor:
                 await self._get_subtensor()
-            self._metagraph = await self._subtensor.metagraph(constants.NETUID)
+            self._metagraph = await self._subtensor.metagraph(settings.NETUID)
             # Once metagraph is initialized, periodically update it
             asyncio.create_task(self._periodic_update_metagraph())
         return self._metagraph

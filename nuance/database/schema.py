@@ -63,7 +63,9 @@ class SocialAccount(Base, TimestampMixin):
     account_username: Mapped[Optional[str]] = mapped_column(sa.String, nullable=True)
     node_hotkey: Mapped[Optional[str]] = mapped_column(sa.String, nullable=True)
     node_netuid: Mapped[Optional[int]] = mapped_column(sa.Integer, nullable=True)
-    created_at: Mapped[datetime.datetime] = mapped_column(sa.DateTime, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
     extra_data: Mapped[dict] = mapped_column(
         sa.JSON, default={}
     )  # Store platform-specific data here
@@ -100,7 +102,9 @@ class Post(Base, TimestampMixin):
     )  # Account ID of the social account that posted this post
     content: Mapped[str] = mapped_column(sa.Text, default="")
     topics: Mapped[list[str]] = mapped_column(sa.JSON, default=[])
-    created_at: Mapped[datetime.datetime] = mapped_column(sa.DateTime, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
     extra_data: Mapped[dict] = mapped_column(
         sa.JSON, default={}
     )  # Platform-specific post data
@@ -149,7 +153,9 @@ class Interaction(Base, TimestampMixin):
         sa.String
     )  # Post ID of the post that was interacted with
     content: Mapped[Optional[str]] = mapped_column(sa.Text, nullable=True)
-    created_at: Mapped[datetime.datetime] = mapped_column(sa.DateTime, nullable=False)
+    created_at: Mapped[datetime.datetime] = mapped_column(
+        sa.DateTime(timezone=True), nullable=False
+    )
     extra_data: Mapped[dict] = mapped_column(
         sa.JSON, default={}
     )  # Platform-specific and interaction-specific data

@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from typing import Any, Optional
 
 import nuance.models as models
@@ -61,7 +60,7 @@ class SocialContentProvider:
             logger.error(f"Error verifying account: {str(e)}")
             return False, str(e)
     
-    async def discover_content(self, commit: models.Commit, since_id: Optional[str] = None) -> dict[str, list[dict[str, Any]]]:
+    async def discover_content(self, commit: models.Commit) -> dict[str, list[dict[str, Any]]]:
         """
         Discover new content (posts and interactions) for an account.
         
@@ -74,14 +73,7 @@ class SocialContentProvider:
         """
         try:
             discovery = self._get_discovery(commit.platform)
-            contents = await discovery.discover_new_contents(commit.account_id, since_id)
-            
-            # Tag all content with the miner's hotkey for tracking
-            for post in contents.get("posts", []):
-                post["miner_hotkey"] = commit.hotkey
-                
-            for interaction in contents.get("interactions", []):
-                interaction["miner_hotkey"] = commit.hotkey
+            contents = await discovery.discover_new_contents(commit.username)
             
             return contents
         except Exception as e:
@@ -101,8 +93,8 @@ class SocialContentProvider:
         """
         try:
             discovery = self._get_discovery(platform)
-            platform_api = discovery.platform
-            return await platform_api.get_post(post_id)
+            return await discovery.get_post(post_id)
         except Exception as e:
             logger.error(f"Error getting post: {str(e)}")
             return None
+        

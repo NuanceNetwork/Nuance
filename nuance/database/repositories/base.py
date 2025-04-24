@@ -12,8 +12,8 @@ M = TypeVar('M')  # Domain model type
 class BaseRepository(Generic[T, M]):
     """Base repository with common CRUD operations."""
     
-    def __init__(self, session_factory):
-        self.model_cls: Type[T]
+    def __init__(self, model_cls: Type[T], session_factory: Callable[[], AsyncContextManager[AsyncSession]]):
+        self.model_cls: Type[T] = model_cls
         self.session_factory: Callable[[], AsyncContextManager[AsyncSession]] = session_factory
     
     # Convert between ORM and domain models

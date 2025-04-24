@@ -1,5 +1,5 @@
 # database/repositories/post.py
-from typing import Optional, List
+from typing import Optional
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert

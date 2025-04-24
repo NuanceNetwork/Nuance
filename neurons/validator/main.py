@@ -17,13 +17,11 @@ from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
 from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph
+from nuance.settings import settings
 
 
 class NuanceValidator:
-    def __init__(self, config):
-        # Setup components
-        self.config = config
-
+    def __init__(self):
         # Processing queues
         self.post_queue = asyncio.Queue()
         self.interaction_queue = asyncio.Queue()
@@ -73,7 +71,7 @@ class NuanceValidator:
             try:
                 # Get commits from chain
                 commits: dict[str, models.Commit] = await get_commitments(
-                    self.subtensor, self.wallet, constants.NETUID
+                    self.subtensor, self.metagraph, settings.NETUID
                 )
                 logger.info(f"✅ Pulled {len(commits)} commits.")
 
@@ -412,3 +410,9 @@ class NuanceValidator:
         final_score = base_score * recency_factor * math.log(1 + influence_factor) * topic_factor
 
         return final_score
+
+if __name__ == "__main__":
+    validator = NuanceValidator()
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(validator.initialize())
+    loop.run_forever()

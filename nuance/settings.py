@@ -7,13 +7,17 @@ load_dotenv()
 
 class Settings(BaseSettings):
     # Environment settings
-    TESTNET: bool = Field(
-        default=False,
-        description="Flag to indicate if running in testnet mode.",
-    )
     DEBUG: bool = Field(
         default=False,
         description="Flag to indicate if running in debug mode.",
+    )
+    NETUID: int = Field(
+        default=23,
+        description="Subnet ID.",
+    )
+    SUBTENSOR_NETWORK: str = Field(
+        default="finney",
+        description="Subtensor network to use.",
     )
     
     # Bittensor
