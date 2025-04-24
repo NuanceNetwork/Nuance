@@ -31,7 +31,7 @@ class BittensorObjectsManager:
             )
         return self._wallet
     
-    async def _get_subtensor(self) -> bt.Subtensor:
+    async def _get_subtensor(self) -> bt.AsyncSubtensor:
         if not self._subtensor:
             logger.info("Setting up subtensor...")
             self._subtensor = bt.async_subtensor(
@@ -59,5 +59,5 @@ class BittensorObjectsManager:
 bittensor_objects_manager = BittensorObjectsManager()
 
 get_wallet: Callable[..., Awaitable[bt.Wallet]] = bittensor_objects_manager._get_wallet
-get_subtensor: Callable[..., Awaitable[bt.Subtensor]] = bittensor_objects_manager._get_subtensor
+get_subtensor: Callable[..., Awaitable[bt.AsyncSubtensor]] = bittensor_objects_manager._get_subtensor
 get_metagraph: Callable[..., Awaitable[bt.Metagraph]] = bittensor_objects_manager._get_metagraph

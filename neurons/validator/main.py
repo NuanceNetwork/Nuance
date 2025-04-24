@@ -3,6 +3,8 @@ import datetime
 import math
 import traceback
 
+import bittensor as bt
+
 import nuance.constants as constants
 from nuance.chain import get_commitments
 from nuance.database.engine import get_db_session
@@ -30,8 +32,10 @@ class NuanceValidator:
         self.processed_posts_cache = {}  # In-memory cache for fast lookup
         self.waiting_interactions = {}  # Temporary holding area
 
-        # Chain components
-        self.subtensor = None  # Will be initialized later
+        # Bittensor objects
+        self.subtensor: bt.AsyncSubtensor = None  # Will be initialized later
+        self.wallet: bt.Wallet = None  # Will be initialized later
+        self.metagraph: bt.Metagraph = None  # Will be initialized later
 
     async def initialize(self):
         # Initialize components and repositories
@@ -45,10 +49,20 @@ class NuanceValidator:
         self.account_repository = SocialAccountRepository(get_db_session)
         self.node_repository = NodeRepository(get_db_session)
 
-        # Initialize chain components
+        # Initialize bittensor objects
         self.subtensor = await get_subtensor()
         self.wallet = await get_wallet()
         self.metagraph = await get_metagraph()
+        
+        # Check if validator is registered to chain
+        if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
+            logger.error(
+                f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
+            )
+            exit()
+        else:
+            self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+            logger.info(f"Running validator on uid: {self.uid}")
 
         # Start workers
         self.workers = [
