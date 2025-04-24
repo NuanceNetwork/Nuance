@@ -34,6 +34,7 @@ async def get_commitments(
         if commit:
             try:
                 decoded_commit = decode_metadata(commit)
+                logger.info(f"🔍 Decoded commitment: {decoded_commit}")
                 username, verification_post_id = decoded_commit.split("@")
             except Exception as e:
                 logger.error(f"❌ Error getting commitment for hotkey {hotkey}: {e}")

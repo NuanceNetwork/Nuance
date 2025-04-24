@@ -56,17 +56,17 @@ queue_listener = QueueListener(
     respect_handler_level=True
 )
 
-# Configure the logger
-logger.add(
-    QueueHandler(log_queue),
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
-    level="INFO"
-)
+# Configure the logger (commented out for now, uncomment when we have the logging server setup)
+# logger.add(
+#     QueueHandler(log_queue),
+#     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+#     level="INFO"
+# )
 
 # Start the listener when module is imported
 # This is a hack to start the listener in a separate named thread, check this code in QueueListener class 's start() method
-queue_listener._thread = log_queue_listener_thread = threading.Thread(target=queue_listener._monitor, name="HTTP Log Queue Listener", daemon=True)
-log_queue_listener_thread.start()
+# queue_listener._thread = log_queue_listener_thread = threading.Thread(target=queue_listener._monitor, name="HTTP Log Queue Listener", daemon=True)
+# log_queue_listener_thread.start()
 
 # Ensure proper cleanup
 def stop_listener():

@@ -133,7 +133,7 @@ class TopicTagger(Processor):
             )
                 
         except Exception as e:
-            logger.error(f"❌ Error tagging topics for post {post.id}: {str(e)}")
+            logger.error(f"❌ Error tagging topics for post {post.post_id}: {str(e)}")
             return ProcessingResult(
                 status=models.ProcessingStatus.ERROR, 
                 output=post, 

@@ -57,7 +57,13 @@ class SocialAccount(Base, TimestampMixin):
     __tablename__ = "social_accounts"
 
     platform_type: Mapped[str] = mapped_column(
-        sa.String, nullable=False, primary_key=True
+        sa.Enum(
+            PlatformType,
+            name="platform_type_enum",
+            validate_strings=True,
+        ),
+        nullable=False,
+        primary_key=True,
     )  # 'twitter', 'facebook', etc.
     account_id: Mapped[str] = mapped_column(sa.String, nullable=False, primary_key=True)
     account_username: Mapped[Optional[str]] = mapped_column(sa.String, nullable=True)
@@ -92,7 +98,13 @@ class Post(Base, TimestampMixin):
     __tablename__ = "posts"
 
     platform_type: Mapped[str] = mapped_column(
-        sa.String, nullable=False, primary_key=True
+        sa.Enum(
+            PlatformType,
+            name="platform_type_enum",
+            validate_strings=True,
+        ),
+        nullable=False,
+        primary_key=True,
     )  # 'twitter', 'facebook', etc.
     post_id: Mapped[str] = mapped_column(
         sa.String, nullable=False, primary_key=True
@@ -109,15 +121,22 @@ class Post(Base, TimestampMixin):
         sa.JSON, default={}
     )  # Platform-specific post data
     processing_status: Mapped[str] = mapped_column(
-        sa.Enum(ProcessingStatus, name="processing_status_enum"),
+        sa.Enum(
+            ProcessingStatus,
+            name="processing_status_enum",
+            validate_strings=True,
+        ),
         default=ProcessingStatus.NEW,
-        validate_string=True,
     )
     processing_note: Mapped[str] = mapped_column(sa.Text, nullable=True)
 
     # Relationships
-    social_account: Mapped["SocialAccount"] = relationship(back_populates="posts")
-    interactions: Mapped[list["Interaction"]] = relationship(back_populates="post")
+    social_account: Mapped["SocialAccount"] = relationship(
+        back_populates="posts", foreign_keys="[Post.platform_type, Post.account_id]"
+    )
+    interactions: Mapped[list["Interaction"]] = relationship(
+        back_populates="post", overlaps="interactions"
+    )
 
     __table_args__ = (
         sa.UniqueConstraint(
@@ -134,17 +153,26 @@ class Interaction(Base, TimestampMixin):
     __tablename__ = "interactions"
 
     platform_type: Mapped[str] = mapped_column(
-        sa.String,
+        sa.Enum(
+            PlatformType,
+            name="platform_type_enum",
+            validate_strings=True,
+        ),
         nullable=False,
         primary_key=True,
     )  # 'twitter', 'facebook', etc.
     interaction_id: Mapped[str] = mapped_column(
-        sa.String, nullable=False, primary_key=True
+        sa.String,
+        nullable=False,
+        primary_key=True,
     )
     interaction_type: Mapped[str] = mapped_column(
-        sa.Enum(InteractionType, name="interaction_type_enum"),
+        sa.Enum(
+            InteractionType,
+            name="interaction_type_enum",
+            validate_strings=True,
+        ),
         nullable=False,
-        validate_string=True,
     )
     account_id: Mapped[str] = mapped_column(
         sa.String
@@ -160,17 +188,26 @@ class Interaction(Base, TimestampMixin):
         sa.JSON, default={}
     )  # Platform-specific and interaction-specific data
     processing_status: Mapped[str] = mapped_column(
-        sa.Enum(ProcessingStatus, name="processing_status_enum"),
+        sa.Enum(
+            ProcessingStatus,
+            name="processing_status_enum",
+            validate_strings=True,
+        ),
         default=ProcessingStatus.NEW,
-        validate_string=True,
     )
     processing_note: Mapped[str] = mapped_column(sa.Text, nullable=True)
 
     # Relationships
     social_account: Mapped["SocialAccount"] = relationship(
-        back_populates="interactions"
+        back_populates="interactions",
+        foreign_keys="[Interaction.platform_type, Interaction.account_id]",
+        overlaps="interactions",
     )
-    post: Mapped["Post"] = relationship(back_populates="interactions")
+    post: Mapped["Post"] = relationship(
+        back_populates="interactions",
+        foreign_keys="[Interaction.platform_type, Interaction.post_id]",
+        overlaps="interactions,social_account",
+    )
 
     __table_args__ = (
         sa.UniqueConstraint(

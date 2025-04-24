@@ -5,8 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from nuance.database.schema import Interaction as InteractionORM
-from nuance.database.schema import Post as PostORM
-from nuance.models import Interaction, ProcessingStatus
+from nuance.models import Interaction
 from nuance.database.repositories.base import BaseRepository
 
 

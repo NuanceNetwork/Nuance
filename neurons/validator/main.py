@@ -109,16 +109,18 @@ class NuanceValidator:
                     # Filter out already processed items
                     new_posts = []
                     for post_data in content["posts"]:
-                        existing = await self.post_repository.get_by_platform_id(
-                            commit.platform, post_data["id"]
+                        existing = await self.post_repository.get_by(
+                            platform_type=post_data.platform_type,
+                            post_id=post_data.post_id
                         )
                         if not existing:
                             new_posts.append(post_data)
 
                     new_interactions = []
                     for interaction_data in content["interactions"]:
-                        existing = await self.interaction_repository.get_by_platform_id(
-                            commit.platform, interaction_data["id"]
+                        existing = await self.interaction_repository.get_by(
+                            platform_type=interaction_data.platform_type,
+                            interaction_id=interaction_data.interaction_id
                         )
                         if not existing:
                             new_interactions.append(interaction_data)

@@ -183,12 +183,12 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 verification_post["quoted_status_id"]
                 == constants.NUANCE_ANNOUNCEMENT_POST_ID
             )
-            return True
+            return True, None
         except Exception as e:
             logger.error(
                 f"❌ Error verifying account {username} from hotkey {hotkey}: {traceback.format_exc()}"
             )
-            return False
+            return False, str(e)
 
 
 # Helper methods
