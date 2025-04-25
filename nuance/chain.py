@@ -42,7 +42,8 @@ async def get_commitments(
                 
             result[hotkey] = models.Commit(
                 uid=uid,
-                hotkey=hotkey,
+                node_hotkey=hotkey,
+                node_netuid=netuid,
                 platform=models.PlatformType.TWITTER,
                 username=username,
                 verification_post_id=verification_post_id,

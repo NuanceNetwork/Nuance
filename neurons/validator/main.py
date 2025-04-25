@@ -90,13 +90,23 @@ class NuanceValidator:
                 logger.info(f"✅ Pulled {len(commits)} commits.")
 
                 for hotkey, commit in commits.items():
+                    node = models.Node(
+                        node_hotkey=commit.node_hotkey,
+                        node_netuid=commit.node_netuid,
+                    )
+                    # Upsert node to database
+                    await self.node_repository.upsert(node)
+                    
                     # First verify the account
-                    is_verified, error = await self.social.verify_account(commit)
-                    if not is_verified:
+                    account, error = await self.social.verify_account(commit, node)
+                    if not account:
                         logger.warning(
                             f"Account {commit.username} is not verified: {error}"
                         )
                         continue
+                    
+                    # Upsert account to database
+                    await self.account_repository.upsert(account)
 
                     # Get last processed timestamps from DB for this account
                     account = await self.account_repository.get_by_platform_id(
@@ -166,8 +176,10 @@ class NuanceValidator:
 
                 saved_post = await self.post_repository.create(post)
 
-                if result.status == models.ProcessingStatus.ACCEPTED:
-                    logger.info(f"Post {post.post_id} processed successfully")
+                if result.status != models.ProcessingStatus.ERROR:
+                    logger.info(f"Post {post.post_id} processed successfully with status {result.status}")
+                    # Upsert post to database
+                    await self.post_repository.upsert(post)
                     # Update cache with processed post
                     self.processed_posts_cache[post.post_id] = saved_post
 
@@ -181,8 +193,9 @@ class NuanceValidator:
                             await self.interaction_queue.put(interaction)
                 else:
                     logger.info(
-                        f"Post {post.post_id} rejected: {result.processing_note}"
+                        f"Post {post.post_id} errored in processing: {result.processing_note}, put back in queue"
                     )
+                    await self.post_queue.put(post)
             except Exception as e:
                 logger.error(f"Error processing post: {traceback.format_exc()}")
             finally:
@@ -228,18 +241,19 @@ class NuanceValidator:
                         )
                     )
 
-                    # Save to database
-                    interaction.processing_status = result.status
-                    interaction.processing_note = result.processing_note
-
-                    saved_interaction = await self.interaction_repository.create(
-                        interaction
-                    )
-
-                    if result.status == models.ProcessingStatus.ACCEPTED:
+                    if result.status != models.ProcessingStatus.ERROR:
                         logger.info(
-                            f"Interaction {interaction.interaction_id} processed successfully"
+                            f"Interaction {interaction.interaction_id} processed successfully with status {result.status}"
                         )
+                        # Save to database
+                        interaction.processing_status = result.status
+                        interaction.processing_note = result.processing_note
+
+                        # Upsert the interacted account to database
+                        await self.account_repository.upsert(interaction.social_account)
+
+                        # Upsert the interaction to database
+                        await self.interaction_repository.upsert(interaction)
                     else:
                         logger.info(
                             f"Interaction {interaction.interaction_id} rejected: {result.processing_note}"
@@ -329,7 +343,7 @@ class NuanceValidator:
 
                         # Get the node that own the account
                         node = await self.node_repository.get_by_hotkey_netuid(
-                            post_account.node_hotkey, constants.NETUID
+                            post_account.node_hotkey, settings.NETUID
                         )
                         if not node:
                             logger.warning(
@@ -338,7 +352,7 @@ class NuanceValidator:
                             continue
 
                         # Get node (miner) for scoring
-                        miner_hotkey = node.hotkey
+                        miner_hotkey = node.node_hotkey
 
                         # Calculate score for this interaction
                         score = self._calculate_interaction_score(
@@ -366,7 +380,7 @@ class NuanceValidator:
                 # 4. Update metagraph with new weights
                 await self.subtensor.set_weights(
                     wallet=self.wallet,
-                    netuid=constants.NETUID,
+                    netuid=settings.NETUID,
                     uids=list(range(len(weights))),
                     weights=weights,
                 )

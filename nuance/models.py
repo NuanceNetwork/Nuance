@@ -23,7 +23,8 @@ class InteractionType(str, Enum):
 
 class Commit(BaseModel):
     uid: int
-    hotkey: str
+    node_hotkey: str
+    node_netuid: int
     platform: PlatformType
     account_id: Optional[str] = None
     username: str

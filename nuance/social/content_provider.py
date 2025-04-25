@@ -38,27 +38,27 @@ class SocialContentProvider:
             raise ValueError(f"Unsupported platform: {platform}")
         return self.discovery_strategies[platform]
     
-    async def verify_account(self, commit: models.Commit) -> tuple[bool, Optional[str]]:
+    async def verify_account(self, commit: models.Commit, node: models.Node) -> tuple[models.SocialAccount, Optional[str]]:
         """
-        Verify an account from a commit.
+        Verify an account from a commit. Return the social account if verified, otherwise return None and the error message.
         
         Args:
             commit: Commit data containing platform, account_id, verification_post_id, hotkey
             
         Returns:
-            Tuple of (success, error_message)
+            Tuple of (SocialAccount, error_message)
         """
         try:
             discovery = self._get_discovery(commit.platform)
-            is_verified, error = await discovery.verify_account(
+            account, error = await discovery.verify_account(
                 username=commit.username,
                 verification_post_id=commit.verification_post_id,
-                hotkey=commit.hotkey
+                node=node,
             )
-            return is_verified, error
+            return account, error
         except Exception as e:
             logger.error(f"Error verifying account: {str(e)}")
-            return False, str(e)
+            return None, str(e)
     
     async def discover_content(self, commit: models.Commit) -> dict[str, list[dict[str, Any]]]:
         """

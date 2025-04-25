@@ -31,12 +31,12 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
-        return _tweet_to_post(raw_post)
+        return _tweet_to_post(raw_post, social_account=raw_post.get("user"))
 
     async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:
             raw_posts = await self.platform.get_all_posts(username)
-            return [_tweet_to_post(post) for post in raw_posts]
+            return [_tweet_to_post(post, social_account=post.get("user")) for post in raw_posts]
         except Exception as e:
             logger.error(
                 f"❌ Error discovering new posts for {username}: {traceback.format_exc()}"
@@ -51,7 +51,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         """
         replies = await self.platform.get_all_replies(username)
         # Standardize the replies
-        standardized_replies = [_reply_tweet_to_interaction(reply) for reply in replies]
+        standardized_replies = [_reply_tweet_to_interaction(reply, social_account=reply.get("user")) for reply in replies]
         return standardized_replies
 
     async def get_verified_users(self) -> set[str]:
@@ -126,7 +126,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             all_replies = await self.discover_new_interactions(username)
 
             # Filter replies
-            verified_replies = []
+            verified_replies: list[models.Interaction] = []
             for reply in all_replies:
                 reply_id = reply.interaction_id
                 # 1.1 Check if the reply comes from a verified username using the CSV list using user id.
@@ -158,8 +158,13 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             posts = await asyncio.gather(
                 *[self.platform.get_post(post_id) for post_id in all_parent_post_ids]
             )
-            posts = [_tweet_to_post(post) for post in posts]
-
+            posts = [_tweet_to_post(post, social_account=post.get("user")) for post in posts]
+            
+            # Assign the post to the reply
+            posts_dict = {post.post_id: post for post in posts}
+            for reply in verified_replies:
+                reply.post = posts_dict[reply.post_id]
+            
             return {"posts": posts, "interactions": verified_replies}
 
         except Exception as e:
@@ -169,26 +174,29 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             return {"posts": [], "interactions": []}
 
     async def verify_account(
-        self, username: str, verification_post_id: str, hotkey: str
-    ) -> bool:
+        self, username: str, verification_post_id: str, node: models.Node
+    ) -> tuple[models.SocialAccount, Optional[str]]:
         try:
-            verification_post = await self.platform.get_post(verification_post_id)
+            raw_verification_post = await self.platform.get_post(verification_post_id)
+            verification_post = _tweet_to_post(raw_verification_post)
+            social_account = _twitter_user_to_social_account(raw_verification_post.get("user"), node=node)
+            verification_post.social_account = social_account
             # Check if username is correct
-            assert verification_post["user"]["username"] == username
+            assert verification_post.social_account.account_username == username
             # Check if miner 's hotkey is in the post text
-            assert hotkey in verification_post["text"]
+            assert node.node_hotkey in verification_post.content
             # Check if the post quotes the Nuance announcement post
-            assert verification_post["is_quote_tweet"]
+            assert verification_post.extra_data["is_quote_tweet"]
             assert (
-                verification_post["quoted_status_id"]
+                verification_post.extra_data["quoted_status_id"]
                 == constants.NUANCE_ANNOUNCEMENT_POST_ID
             )
-            return True, None
+            return verification_post.social_account, None
         except Exception as e:
             logger.error(
-                f"❌ Error verifying account {username} from hotkey {hotkey}: {traceback.format_exc()}"
+                f"❌ Error verifying account {username} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
-            return False, str(e)
+            return None, str(e)
 
 
 # Helper methods
@@ -209,13 +217,19 @@ def _twitter_user_to_social_account(
         account_name=user.get("username"),
         node_hotkey=node.node_hotkey if node else None,
         node_netuid=node.node_netuid if node else None,
+        created_at=datetime.datetime.strptime(
+            user.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
+        ).astimezone(datetime.timezone.utc),
+        node=node if node else None,
     )
 
 
-def _tweet_to_post(tweet: dict) -> models.Post:
+def _tweet_to_post(tweet: dict, social_account: models.SocialAccount | dict | None = None) -> models.Post:
     """
     Convert a Twitter tweet dictionary to a Post object.
     """
+    if social_account is not None and isinstance(social_account, dict):
+        social_account = _twitter_user_to_social_account(social_account)
     return models.Post(
         platform_type=models.PlatformType.TWITTER,
         post_id=tweet.get("id"),
@@ -225,13 +239,18 @@ def _tweet_to_post(tweet: dict) -> models.Post:
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
         ).astimezone(datetime.timezone.utc),
         extra_data=tweet,
+        social_account=social_account,
     )
 
 
-def _reply_tweet_to_interaction(tweet: dict) -> models.Interaction:
+def _reply_tweet_to_interaction(tweet: dict, social_account: models.SocialAccount=None, post: models.Post=None) -> models.Interaction:
     """
     Convert a Twitter tweet dictionary to an Interaction object.
     """
+    if social_account is not None and isinstance(social_account, dict):
+        social_account = _twitter_user_to_social_account(social_account)
+    if post is not None and isinstance(post, dict):
+        post = _tweet_to_post(post)
     return models.Interaction(
         interaction_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
@@ -243,4 +262,6 @@ def _reply_tweet_to_interaction(tweet: dict) -> models.Interaction:
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
         ).astimezone(datetime.timezone.utc),
         extra_data=tweet,
+        social_account=social_account if social_account else None,
+        post=post if post else None,
     )
