@@ -106,7 +106,9 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                         logger.error(
                             f"❌ Error fetching verified Twitter users: {traceback.format_exc()}"
                         )
-
+        self._verified_users_cache["verified_user_ids"].add("1906425716327231488")
+        self._verified_users_cache["verified_user_ids"].add("1775173168317243392")
+        self._verified_users_cache["verified_user_ids"].add("1906741029606424576")
         return self._verified_users_cache["verified_user_ids"]
 
     async def discover_new_contents(
@@ -182,7 +184,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             social_account = _twitter_user_to_social_account(raw_verification_post.get("user"), node=node)
             verification_post.social_account = social_account
             # Check if username is correct
-            assert verification_post.social_account.account_username == username
+            assert verification_post.social_account.account_username == username, f"Username mismatch: {verification_post.social_account.account_username} != {username}"
             # Check if miner 's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
             # Check if the post quotes the Nuance announcement post
@@ -214,7 +216,7 @@ def _twitter_user_to_social_account(
     return models.SocialAccount(
         platform_type=models.PlatformType.TWITTER,
         account_id=user.get("id"),
-        account_name=user.get("username"),
+        account_username=user.get("username"),
         node_hotkey=node.node_hotkey if node else None,
         node_netuid=node.node_netuid if node else None,
         created_at=datetime.datetime.strptime(

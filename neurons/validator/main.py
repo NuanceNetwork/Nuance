@@ -433,6 +433,7 @@ class NuanceValidator:
         
         # Bonus score for topics
         topics = interaction.post.topics
+        topic_factor = 1
         if topics and len(topics) > 0:
             topic_factor = 2
             

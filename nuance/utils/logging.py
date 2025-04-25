@@ -74,8 +74,8 @@ def stop_listener():
     if queue_listener._thread:  # Wait for thread to finish
         queue_listener._thread.join()
 
-import atexit
-atexit.register(stop_listener)
+# import atexit
+# atexit.register(stop_listener)
 
 # Export the configured logger
 __all__ = ['logger']

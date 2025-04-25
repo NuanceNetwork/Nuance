@@ -16,25 +16,31 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
     @classmethod
     def _orm_to_domain(cls, orm_obj: InteractionORM) -> Interaction:
         return Interaction(
-            platform_id=orm_obj.interaction_id,
+            interaction_id=orm_obj.interaction_id,
+            platform_type=orm_obj.platform_type,
             interaction_type=orm_obj.interaction_type,
+            account_id=orm_obj.account_id,
             post_id=orm_obj.post_id,
             content=orm_obj.content,
+            created_at=orm_obj.created_at,
             extra_data=orm_obj.extra_data,
             processing_status=orm_obj.processing_status,
-            created_at=orm_obj.created_at,
+            processing_note=orm_obj.processing_note
         )
 
     @classmethod
     def _domain_to_orm(cls, domain_obj: Interaction) -> InteractionORM:
         return InteractionORM(
             interaction_id=domain_obj.interaction_id,
+            platform_type=domain_obj.platform_type,
             interaction_type=domain_obj.interaction_type,
+            account_id=domain_obj.account_id,
             post_id=domain_obj.post_id,
             content=domain_obj.content,
+            created_at=domain_obj.created_at,
             extra_data=domain_obj.extra_data,
             processing_status=domain_obj.processing_status,
-            created_at=domain_obj.created_at,
+            processing_note=domain_obj.processing_note
         )
 
     async def get_recent_interactions(
@@ -57,8 +63,9 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
                 )
                 .order_by(InteractionORM.created_at.desc())
             )
-
-            return [self._orm_to_domain(obj) for obj in result.scalars().all()]
+            all_object = [obj for obj in result.scalars().all()]
+            print([obj.__dict__ for obj in all_object], len(all_object))
+            return [self._orm_to_domain(obj) for obj in all_object]
 
     async def upsert(
         self,

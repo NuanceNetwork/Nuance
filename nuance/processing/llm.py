@@ -85,6 +85,7 @@ class LLMService:
         """
         url = "https://api.nineteen.ai/v1/chat/completions"
         if settings.NINETEEN_API_KEY:
+            print(f"Using provided API key: {settings.NINETEEN_API_KEY}")
             # Use provided API key if provided
             headers = {
                 "Authorization": f"Bearer {settings.NINETEEN_API_KEY}",
