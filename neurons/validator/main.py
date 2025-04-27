@@ -371,7 +371,8 @@ class NuanceValidator:
                 for hotkey, score in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         weights[self.metagraph.hotkeys.index(hotkey)] = score
-                        
+
+                logger.info(f"Weights: {weights}")
                 # 4. Update metagraph with new weights
                 await self.subtensor.set_weights(
                     wallet=self.wallet,

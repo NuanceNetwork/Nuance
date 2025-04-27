@@ -83,7 +83,7 @@ class SocialContentProvider:
             logger.error(f"Error discovering content: {str(e)}")
             return DiscoveredContent(posts=[], interactions=[])
         
-    async def discover_contents_streaming(self, social_account: models.SocialAccount) -> AsyncGenerator[models.Post | models.Interaction]:
+    async def discover_contents_streaming(self, social_account: models.SocialAccount) -> AsyncGenerator[models.Post | models.Interaction, None]:
         pass
     
     async def get_post(self, platform: str, post_id: str) -> Optional[dict[str, Any]]:

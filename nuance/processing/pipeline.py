@@ -1,6 +1,7 @@
 from typing import Any, Optional, Type 
 
 from nuance.processing.base import Processor, ProcessingResult
+from nuance.models import ProcessingStatus
 from nuance.processing.nuance_check import NuanceChecker
 from nuance.processing.topic_tagger import TopicTagger
 from nuance.processing.sentiment import SentimentAnalyzer
@@ -94,6 +95,9 @@ class Pipeline:
         
         for processor in self.processors:
             result = await processor.process(current_data)
+            # Break if the result is rejected
+            if result.status == ProcessingStatus.REJECTED:
+                break
             processing_details[processor.processor_name] = result.processing_note
             current_data = result.output
             

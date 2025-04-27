@@ -106,9 +106,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                         logger.error(
                             f"❌ Error fetching verified Twitter users: {traceback.format_exc()}"
                         )
-        self._verified_users_cache["verified_user_ids"].add("1906425716327231488")
-        self._verified_users_cache["verified_user_ids"].add("1775173168317243392")
-        self._verified_users_cache["verified_user_ids"].add("1906741029606424576")
+
         return self._verified_users_cache["verified_user_ids"]
 
     async def discover_new_contents(
@@ -222,6 +220,7 @@ def _twitter_user_to_social_account(
         created_at=datetime.datetime.strptime(
             user.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
         ).astimezone(datetime.timezone.utc),
+        extra_data=user,
         node=node if node else None,
     )
 
