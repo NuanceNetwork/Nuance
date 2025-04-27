@@ -1,9 +1,13 @@
-from typing import Any, Optional
+from typing import Any, AsyncGenerator, Optional, TypedDict
 
 import nuance.models as models
 from nuance.social.discovery.base import BaseDiscoveryStrategy
 from nuance.social.discovery.twitter import TwitterDiscoveryStrategy
 from nuance.utils.logging import logger
+
+class DiscoveredContent(TypedDict):
+    posts: list[models.Post]
+    interactions: list[models.Interaction]
 
 class SocialContentProvider:
     """
@@ -60,25 +64,27 @@ class SocialContentProvider:
             logger.error(f"Error verifying account: {str(e)}")
             return None, str(e)
     
-    async def discover_content(self, commit: models.Commit) -> dict[str, list[dict[str, Any]]]:
+    async def discover_contents(self, social_account: models.SocialAccount) -> DiscoveredContent:
         """
         Discover new content (posts and interactions) for an account.
         
         Args:
-            commit: Commit data containing platform and account_id
-            since_id: Optional ID to fetch content newer than this
+            social_account: SocialAccount data containing platform and account_id
             
         Returns:
             Dictionary with "posts" and "interactions" keys
         """
         try:
-            discovery = self._get_discovery(commit.platform)
-            contents = await discovery.discover_new_contents(commit.username)
+            discovery = self._get_discovery(social_account.platform_type)
+            contents = await discovery.discover_new_contents(social_account)
             
             return contents
         except Exception as e:
             logger.error(f"Error discovering content: {str(e)}")
-            return {"posts": [], "interactions": []}
+            return DiscoveredContent(posts=[], interactions=[])
+        
+    async def discover_contents_streaming(self, social_account: models.SocialAccount) -> AsyncGenerator[models.Post | models.Interaction]:
+        pass
     
     async def get_post(self, platform: str, post_id: str) -> Optional[dict[str, Any]]:
         """

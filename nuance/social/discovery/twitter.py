@@ -112,20 +112,20 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         return self._verified_users_cache["verified_user_ids"]
 
     async def discover_new_contents(
-        self, username: str
+        self, social_account: models.SocialAccount
     ) -> dict[str, list[models.Post | models.Interaction]]:
         """
         Discover new content (posts and interactions) for a Twitter account.
 
         Args:
-            username: Twitter username
+            social_account: SocialAccount data containing platform and account_id
 
         Returns:
             Dictionary with "posts" and "interactions" keys
         """
         try:
             # Get new interactions to the account, currently only replies
-            all_replies = await self.discover_new_interactions(username)
+            all_replies = await self.discover_new_interactions(social_account.account_username)
 
             # Filter replies
             verified_replies: list[models.Interaction] = []
@@ -171,7 +171,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
 
         except Exception as e:
             logger.error(
-                f"❌ Error discovering new contents for {username}: {traceback.format_exc()}"
+                f"❌ Error discovering new contents for {social_account.account_username}: {traceback.format_exc()}"
             )
             return {"posts": [], "interactions": []}
 

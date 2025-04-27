@@ -95,8 +95,8 @@ class Pipeline:
         for processor in self.processors:
             result = await processor.process(current_data)
             processing_details[processor.processor_name] = result.processing_note
-        
-        # TODO: Processing result is not suitable for pipeline result, refine this
+            current_data = result.output
+            
         final_result = result
         final_result.details = processing_details
         return final_result

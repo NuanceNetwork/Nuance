@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import json
 import math
 import traceback
 
@@ -108,39 +109,34 @@ class NuanceValidator:
                     # Upsert account to database
                     await self.account_repository.upsert(account)
 
-                    # Get last processed timestamps from DB for this account
-                    account = await self.account_repository.get_by_platform_id(
-                        commit.platform, commit.account_id
-                    )
-
-                    # Discover new content since last time
-                    content = await self.social.discover_content(commit)
+                    # Discover new content
+                    discovered_content = await self.social.discover_contents(account)
 
                     # Filter out already processed items
                     new_posts = []
-                    for post_data in content["posts"]:
+                    for post in discovered_content["posts"]:
                         existing = await self.post_repository.get_by(
-                            platform_type=post_data.platform_type,
-                            post_id=post_data.post_id
+                            platform_type=post.platform_type,
+                            post_id=post.post_id
                         )
                         if not existing:
-                            new_posts.append(post_data)
+                            new_posts.append(post)
 
                     new_interactions = []
-                    for interaction_data in content["interactions"]:
+                    for interaction in discovered_content["interactions"]:
                         existing = await self.interaction_repository.get_by(
-                            platform_type=interaction_data.platform_type,
-                            interaction_id=interaction_data.interaction_id
+                            platform_type=interaction.platform_type,
+                            interaction_id=interaction.interaction_id
                         )
                         if not existing:
-                            new_interactions.append(interaction_data)
+                            new_interactions.append(interaction)
 
                     # Queue new content for processing
                     for post in new_posts:
                         await self.post_queue.put(post)
 
-                    for interaction_data in new_interactions:
-                        await self.interaction_queue.put(interaction_data)
+                    for interaction in new_interactions:
+                        await self.interaction_queue.put(interaction)
 
                     logger.info(
                         f"Queued {len(new_posts)} posts and {len(new_interactions)} interactions for {commit.account_id}"
@@ -162,6 +158,7 @@ class NuanceValidator:
         while True:
             post: models.Post = await self.post_queue.get()
 
+            # TODO: Make this a task to handle multiple posts in concurrent, be careful with concurrency on cache writes
             try:
                 logger.info(
                     f"Processing post: {post.post_id} from {post.account_id} on platform {post.platform_type}"
@@ -169,27 +166,23 @@ class NuanceValidator:
 
                 # Process the post
                 result: ProcessingResult = await self.pipelines["post"].process(post)
-
-                # Save to database regardless of processing outcome
                 post.processing_status = result.status
-                post.processing_note = result.processing_note
-
-                saved_post = await self.post_repository.create(post)
+                post.processing_note = json.dumps(result.details)
 
                 if result.status != models.ProcessingStatus.ERROR:
                     logger.info(f"Post {post.post_id} processed successfully with status {result.status}")
                     # Upsert post to database
                     await self.post_repository.upsert(post)
                     # Update cache with processed post
-                    self.processed_posts_cache[post.post_id] = saved_post
+                    self.processed_posts_cache[post.post_id] = post
 
                     # Process any waiting interactions
-                    waiting = self.waiting_interactions.pop(post.post_id, [])
-                    if waiting:
+                    waitings = self.waiting_interactions.pop(post.post_id, [])
+                    if waitings:
                         logger.info(
-                            f"Processing {len(waiting)} waiting interactions for post {post.post_id}"
+                            f"Processing {len(waitings)} waiting interactions for post {post.post_id}"
                         )
-                        for interaction in waiting:
+                        for interaction in waitings:
                             await self.interaction_queue.put(interaction)
                 else:
                     logger.info(
@@ -211,25 +204,28 @@ class NuanceValidator:
         while True:
             interaction: models.Interaction = await self.interaction_queue.get()
 
+            # TODO: Make this a task to handle multiple interactions in concurrent, be careful with concurrency on cache writes
             try:
-                parent_post_id = interaction.post_id
-                platform = interaction.platform_type
+                platform_type = interaction.platform_type
+                account_id = interaction.account_id
+                post_id = interaction.post_id
 
                 logger.info(
-                    f"Processing interaction {interaction.interaction_id} for post {parent_post_id}"
+                    f"Processing interaction {interaction.interaction_id} from {account_id} to post {post_id} on platform {platform_type}"
                 )
 
                 # First check cache for parent post
-                parent_post = self.processed_posts_cache.get(parent_post_id)
+                parent_post = self.processed_posts_cache.get(post_id)
 
                 # If not in cache, try database
-                if not parent_post and parent_post_id:
-                    parent_post = await self.post_repository.get_by_platform_id(
-                        platform, parent_post_id
+                if not parent_post and post_id:
+                    parent_post = await self.post_repository.get_by(
+                        platform_type=platform_type,
+                        post_id=post_id
                     )
                     # Add to cache if found
                     if parent_post:
-                        self.processed_posts_cache[parent_post_id] = parent_post
+                        self.processed_posts_cache[post_id] = parent_post
 
                 if parent_post:
                     # Process the interaction
@@ -240,15 +236,13 @@ class NuanceValidator:
                             parent_post=parent_post,
                         )
                     )
+                    interaction.processing_status = result.status
+                    interaction.processing_note = json.dumps(result.details)
 
                     if result.status != models.ProcessingStatus.ERROR:
                         logger.info(
                             f"Interaction {interaction.interaction_id} processed successfully with status {result.status}"
                         )
-                        # Save to database
-                        interaction.processing_status = result.status
-                        interaction.processing_note = result.processing_note
-
                         # Upsert the interacted account to database
                         await self.account_repository.upsert(interaction.social_account)
 
@@ -256,14 +250,15 @@ class NuanceValidator:
                         await self.interaction_repository.upsert(interaction)
                     else:
                         logger.info(
-                            f"Interaction {interaction.interaction_id} rejected: {result.processing_note}"
+                            f"Interaction {interaction.interaction_id} errored in processing: {result.processing_note}, put back in queue"
                         )
+                        await self.interaction_queue.put(interaction) 
                 else:
                     # Parent not processed yet, add to waiting list
                     logger.info(
-                        f"Interaction {interaction.interaction_id} waiting for post {parent_post_id}"
+                        f"Interaction {interaction.interaction_id} waiting for post {post_id}"
                     )
-                    self.waiting_interactions.setdefault(parent_post_id, []).append(
+                    self.waiting_interactions.setdefault(post_id, []).append(
                         interaction
                     )
             except Exception as e:
