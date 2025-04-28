@@ -1,12 +1,23 @@
+import os
 import logging
 from logging.handlers import QueueHandler, QueueListener
 import queue
 import threading
-
+import sys
 import requests
 from loguru import logger
 
 import nuance.constants as constants
+
+logger.add(sys.stderr, level="DEBUG")
+
+# Ensure the logs directory exists
+logs_dir = os.path.join(os.getcwd(), "logs")
+os.makedirs(logs_dir, exist_ok=True)
+
+# Add the log file to the logger
+logger.add(os.path.join(logs_dir, "logfile.log"), level="DEBUG", rotation="10 MB", retention="10 days", compression="zip")
+
 
 class LoguruHTTPHandler(logging.Handler):
     """HTTP log handler that works with standard QueueListener"""
