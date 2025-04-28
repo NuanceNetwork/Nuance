@@ -1,7 +1,7 @@
+import os
 import asyncio
 from collections import defaultdict
 import json
-import os
 import shelve
 import traceback
 from typing import Any

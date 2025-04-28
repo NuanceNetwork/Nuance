@@ -1,4 +1,6 @@
 #nuance/database/engine.py
+import atexit
+import asyncio
 import contextlib
 from typing import Any, AsyncIterator
 
@@ -86,6 +88,15 @@ class DatabaseSessionManager:
 
 # Create global session manager instance
 sessionmanager = DatabaseSessionManager(settings.database_url, settings.database_engine_kwargs)
+
+# Register cleanup function to close database connections on program exit
+def cleanup_db():
+    """Cleanup database connections on program exit."""
+    if sessionmanager._initialized:
+        loop = asyncio.get_event_loop()
+        loop.run_until_complete(sessionmanager.close())
+
+atexit.register(cleanup_db)
 
 @contextlib.asynccontextmanager
 async def get_db_session() -> AsyncIterator[AsyncSession]:

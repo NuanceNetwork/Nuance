@@ -14,3 +14,9 @@ dependencies = [
     "alembic>=1.15.2",
     "psycopg2-binary>=2.9.10",
 ]
+
+[dependency-groups]
+api = [
+    "scalar-fastapi>=1.0.3",
+    "slowapi>=0.1.9",
+]

@@ -30,5 +30,5 @@ async def async_http_request_with_retry(
             if attempt < MAX_RETRIES - 1:
                 await asyncio.sleep(RETRY_DELAY * (attempt + 1))
             else:
-                logger.error(f"❌ All {MAX_RETRIES} attempts failed for {url}.")
+                logger.error(f"❌ All {MAX_RETRIES} attempts failed for {url}")
                 raise

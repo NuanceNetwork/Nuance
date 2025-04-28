@@ -10,7 +10,7 @@ import bittensor as bt
 from loguru import logger
 
 from neurons.config import get_config
-from neurons.validator.api_server import run_api_server
+from neurons.validator.api_server.api_server import run_api_server
 import nuance.constants as constants
 import nuance.chain as chain
 import nuance.twitter as twitter

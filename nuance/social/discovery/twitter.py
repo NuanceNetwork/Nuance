@@ -149,23 +149,32 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                         f"⏳ Reply {reply_id} from account younger than 1 year; skipping."
                     )
                     continue
+                
+                logger.info(
+                        f"⏳ Processing reply {reply_id} from verified account with id {reply.account_id}"
+                )
                 verified_replies.append(reply)
+
             # Get parent posts of the replies, these are considered as new posts
             all_parent_post_ids = [
                 reply.post_id for reply in all_replies if reply.post_id is not None
             ]
 
             posts = await asyncio.gather(
-                *[self.platform.get_post(post_id) for post_id in all_parent_post_ids]
+                *[self.platform.get_post(post_id) for post_id in all_parent_post_ids], return_exceptions=True
             )
-            posts = [_tweet_to_post(post, social_account=post.get("user")) for post in posts]
+            posts = [_tweet_to_post(post, social_account=post.get("user")) for post in posts if not isinstance(post, Exception)]
             
-            # Assign the post to the reply
+            # Assign the post to the reply, filter valida replies
             posts_dict = {post.post_id: post for post in posts}
+            valid_replies = []
             for reply in verified_replies:
-                reply.post = posts_dict[reply.post_id]
+                if reply.post_id in posts_dict.keys():
+                    # Reply still has available parent post
+                    reply.post = posts_dict[reply.post_id]
+                    valid_replies.append(reply)
             
-            return {"posts": posts, "interactions": verified_replies}
+            return {"posts": posts, "interactions": valid_replies}
 
         except Exception as e:
             logger.error(
