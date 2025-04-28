@@ -56,7 +56,8 @@ queue_listener = QueueListener(
     respect_handler_level=True
 )
 
-# Configure the logger (commented out for now, uncomment when we have the logging server setup)
+# TODO: Uncomment when we have the logging server setup
+# Configure the logger 
 # logger.add(
 #     QueueHandler(log_queue),
 #     format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",

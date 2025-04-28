@@ -57,19 +57,32 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     ```
     
     Save the verification post ID as you'll need it for the next step.
+
+5. Set environment variables
+
+    Create an `.env` file in the root directory of the project to configure environment variables. This file will be automatically loaded at runtime.
     
-5. Commit your X account to the chain
+    Example `.env` file:
+    ```
+    NETUID=23
+    SUBTENSOR_NETWORK=finney
+    WALLET_PATH=~/.bittensor/wallets
+    WALLET_NAME=my_wallet
+    WALLET_HOTKEY=my_hotkey
+    ```
+
+    Alternatively, you can run the following command to set up the `.env` file with the same values:
+    ```sh
+    echo -e "NETUID=23\nSUBTENSOR_NETWORK=finney\nWALLET_PATH=~/.bittensor/wallets\nWALLET_NAME=my_wallet\nWALLET_HOTKEY=my_hotkey" > .env
+    ```
+    
+6. Commit your X account to the chain
 
     Run the miner script to commit your X account to the chain:
     
     ```sh
     # Run the miner script
-    python -m neurons.miner.miner \
-        --netuid {netuid} \
-        --wallet.path "your_wallet_path" \
-        --wallet.name "your_wallet_name" \
-        --wallet.hotkey "your_hotkey_name" \
-        --subtensor.network finney
+    uv run python -m neurons.miner.main
     
     # When prompted, enter your X account username and verification post ID
     ```
