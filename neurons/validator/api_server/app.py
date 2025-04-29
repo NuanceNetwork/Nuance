@@ -2,7 +2,7 @@
 import asyncio
 from typing import Annotated, Awaitable, Callable
 
-from fastapi import Body, Depends, FastAPI, HTTPException
+from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -369,6 +369,7 @@ async def verify_account(
 @app.post("/nuance/check", response_model=bool)
 @limiter.limit("2/minute")
 async def check_nuance(
+    request: Request,
     content: Annotated[str, Body(..., embed=True)],
     nuance_checker: Annotated[
         Callable[[str], Awaitable[bool]], Depends(get_nuance_checker)

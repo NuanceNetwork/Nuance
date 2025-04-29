@@ -3,7 +3,7 @@ import asyncio
 import aiohttp
 from loguru import logger
 
-MAX_RETRIES = 10
+MAX_RETRIES = 3
 RETRY_DELAY = 5
 HTTP_TIMEOUT = aiohttp.ClientTimeout(total=30)
 

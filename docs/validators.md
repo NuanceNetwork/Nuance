@@ -53,7 +53,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     cd nuance
 
     # Environment setup with uv
-    pip install uv
+    sudo pip install uv
     uv sync
     ```
 

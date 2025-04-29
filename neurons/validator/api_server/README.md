@@ -139,10 +139,10 @@ To start the API server:
 
 ```bash
 # Install required dependencies
-pip install -e ".[api]"
+uv pip install -e ".[api]"
 
 # Run the server
-python -m neurons.validator.api_server
+uv run python -m neurons.validator.api_server.app
 ```
 
 By default, the server will run on port 8000 and will be accessible at `http://localhost:8000`.

@@ -15,8 +15,12 @@ dependencies = [
     "psycopg2-binary>=2.9.10",
 ]
 
-[dependency-groups]
+[project.optional-dependencies]
 api = [
     "scalar-fastapi>=1.0.3",
     "slowapi>=0.1.9",
 ]
+
+[tool.setuptools]
+include-package-data = true
+packages = ["nuance", "neurons"]  # Explicitly list packages
