@@ -9,6 +9,9 @@ from loguru import logger
 
 import nuance.constants as constants
 
+# Remove default loguru handler
+logger.remove()
+
 logger.add(sys.stderr, level="DEBUG")
 
 # Ensure the logs directory exists

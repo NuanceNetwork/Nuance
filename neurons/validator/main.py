@@ -227,7 +227,7 @@ class NuanceValidator:
                     if parent_post:
                         self.processed_posts_cache[post_id] = parent_post
 
-                if parent_post:
+                if parent_post and parent_post.processing_status == models.ProcessingStatus.ACCEPTED:
                     # Process the interaction
                     from nuance.processing.sentiment import InteractionPostContext
                     result: ProcessingResult = await self.pipelines["interaction"].process(
@@ -252,7 +252,21 @@ class NuanceValidator:
                         logger.info(
                             f"Interaction {interaction.interaction_id} errored in processing: {result.processing_note}, put back in queue"
                         )
-                        await self.interaction_queue.put(interaction) 
+                        await self.interaction_queue.put(interaction)
+                elif parent_post and parent_post.processing_status == models.ProcessingStatus.REJECTED:
+                    logger.info(
+                        f"Post {post_id} rejected in processing: {parent_post.processing_note}, rejecting interaction {interaction.interaction_id}"
+                    )
+                    
+                    interaction.processing_status = models.ProcessingStatus.REJECTED
+                    interaction.processing_note = "Parent post rejected"
+                    
+                    # Upsert the interacted account to database
+                    await self.account_repository.upsert(interaction.social_account)
+                    
+                    # Upsert the interaction to database
+                    await self.interaction_repository.upsert(interaction)
+                    
                 else:
                     # Parent not processed yet, add to waiting list
                     logger.info(
@@ -269,7 +283,7 @@ class NuanceValidator:
     async def score_aggregating(self):
         """
         Calculate scores for all nodes based on recent interactions.
-        This method periodically queries for interactions from the last 7 days,
+        This method periodically queries for interactions from the last 14 days,
         scores them based on freshness and account influence, and updates node scores.
         """
         while True:
@@ -278,15 +292,16 @@ class NuanceValidator:
                 current_block = await self.subtensor.get_current_block()
                 logger.info(f"Calculating scores for block {current_block}")
 
-                # Get cutoff date (7 days ago)
+                # Get cutoff date (14 days ago)
                 cutoff_date = datetime.datetime.now(
                     tz=datetime.timezone.utc
-                ) - datetime.timedelta(days=7)
+                ) - datetime.timedelta(days=14)
 
-                # 1. Get all interactions from the last 7 days that are PROCESSED
+                # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
-                        since_date=cutoff_date
+                        since_date=cutoff_date,
+                        processing_status=models.ProcessingStatus.ACCEPTED
                     )
                 )
 
@@ -305,14 +320,21 @@ class NuanceValidator:
                 for interaction in recent_interactions:
                     try:
                         # Get the post being interacted with
-                        post = await self.post_repository.get_by_platform_id(
-                            interaction.platform_type, interaction.post_id
+                        post = await self.post_repository.get_by(
+                            platform_type=interaction.platform_type,
+                            post_id=interaction.post_id
                         )
                         if not post:
                             logger.warning(
                                 f"Post not found for interaction {interaction.interaction_id}"
                             )
                             continue
+                        elif post.processing_status != models.ProcessingStatus.ACCEPTED:
+                            logger.warning(
+                                f"Post {post.post_id} is not accepted for interaction {interaction.interaction_id}"
+                            )
+                            continue
+                        
                         interaction.post = post
 
                         # Get the account that made the post (miner's account)
@@ -400,7 +422,7 @@ class NuanceValidator:
         Args:
             interaction: The interaction to score
             interaction_account: The account that made the interaction
-            cutoff_date: The date beyond which interactions are not scored (7 days ago)
+            cutoff_date: The date beyond which interactions are not scored (14 days ago)
 
         Returns:
             float: The calculated score
@@ -418,10 +440,10 @@ class NuanceValidator:
         # Recency factor - newer interactions get higher scores
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         age_days = (now - interaction.created_at).days
-        max_age = 7  # Max age in days
+        max_age = 14  # Max age in days
 
-        # Linear decay from 1.0 (today) to 0.3 (7 days old)
-        recency_factor = 1.0 - (0.7 * age_days / max_age)
+        # Linear decay from 1.0 (today) to 0.1 (14 days old)
+        recency_factor = 1.0 - (0.9 * age_days / max_age)
 
         # Account influence factor (based on followers)
         followers = interaction.social_account.extra_data.get("followers_count", 0)

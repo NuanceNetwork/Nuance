@@ -9,21 +9,21 @@ from nuance.processing.nuance_check import NuanceChecker
 
 from nuance.processing.llm import query_llm
 # Dependency for database repositories
-async def get_post_repo():
+def get_post_repo():
     return PostRepository(session_factory=get_db_session)
 
-async def get_interaction_repo():
+def get_interaction_repo():
     return InteractionRepository(session_factory=get_db_session)
 
-async def get_account_repo():
+def get_account_repo():
     return SocialAccountRepository(session_factory=get_db_session)
 
-async def get_node_repo():
+def get_node_repo():
     return NodeRepository(session_factory=get_db_session)
 
 # Dependency for NuanceChecker
 @lru_cache(maxsize=1)
-async def get_nuance_checker() -> Callable[[str], Awaitable[bool]]:
+def get_nuance_checker() -> Callable[[str], Awaitable[bool]]:
     nuance_checker_processor = NuanceChecker()
     
     async def nuance_checker(content: str) -> bool:

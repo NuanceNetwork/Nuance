@@ -95,11 +95,12 @@ class Pipeline:
         
         for processor in self.processors:
             result = await processor.process(current_data)
+            processing_details[processor.processor_name] = result.processing_note
+            current_data = result.output
+
             # Break if the result is rejected
             if result.status == ProcessingStatus.REJECTED:
                 break
-            processing_details[processor.processor_name] = result.processing_note
-            current_data = result.output
             
         final_result = result
         final_result.details = processing_details

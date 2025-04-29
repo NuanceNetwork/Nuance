@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from nuance.database.schema import Interaction as InteractionORM
-from nuance.models import Interaction
+from nuance.models import Interaction, ProcessingStatus
 from nuance.database.repositories.base import BaseRepository
 
 
@@ -44,7 +44,7 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
         )
 
     async def get_recent_interactions(
-        self, since_date: datetime.datetime
+        self, since_date: datetime.datetime, processing_status: ProcessingStatus = None
     ) -> list[Interaction]:
         """
         Get all processed interactions since the given date.
@@ -56,15 +56,15 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
             List of processed interactions
         """
         async with self.session_factory() as session:
+            query = sa.select(InteractionORM).where(
+                InteractionORM.created_at >= since_date
+            )
+            if processing_status is not None:
+                query = query.where(InteractionORM.processing_status == processing_status)
             result = await session.execute(
-                sa.select(InteractionORM)
-                .where(
-                    InteractionORM.created_at >= since_date,
-                )
-                .order_by(InteractionORM.created_at.desc())
+                query.order_by(InteractionORM.created_at.desc())
             )
             all_object = [obj for obj in result.scalars().all()]
-            print([obj.__dict__ for obj in all_object], len(all_object))
             return [self._orm_to_domain(obj) for obj in all_object]
 
     async def upsert(

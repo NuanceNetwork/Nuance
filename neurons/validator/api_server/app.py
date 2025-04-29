@@ -47,9 +47,9 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
 # Endpoints
-@app.get("/miners/{hotkey}/stats", response_model=MinerStatsResponse)
+@app.get("/miners/{node_hotkey}/stats", response_model=MinerStatsResponse)
 async def get_miner_stats(
-    hotkey: str,
+    node_hotkey: str,
     node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
@@ -63,18 +63,18 @@ async def get_miner_stats(
     - Number of posts submitted
     - Number of interactions received
     """
-    logger.info(f"Getting stats for miner with hotkey: {hotkey}")
+    logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
     
     # Check if node exists
-    node = await node_repo.get_by(hotkey=hotkey)
+    node = await node_repo.get_by(node_hotkey=node_hotkey)
     if not node:
-        logger.warning(f"Miner not found with hotkey: {hotkey}")
+        logger.warning(f"Miner not found with hotkey: {node_hotkey}")
         raise HTTPException(status_code=404, detail="Miner not found")
 
     # Get accounts, posts and interactions counts
-    accounts = await account_repo.find_many(node_hotkey=hotkey)
+    accounts = await account_repo.find_many(node_hotkey=node_hotkey)
     account_count = len(accounts)
-    logger.debug(f"Found {account_count} accounts for miner {hotkey}")
+    logger.debug(f"Found {account_count} accounts for miner {node_hotkey}")
 
     # Get account IDs
     account_ids = [(acc.platform_type, acc.account_id) for acc in accounts]
@@ -95,19 +95,19 @@ async def get_miner_stats(
             )
             interaction_count += len(interactions)
 
-    logger.info(f"Completed stats for miner {hotkey}: {post_count} posts, {interaction_count} interactions")
+    logger.info(f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions")
 
     return MinerStatsResponse(
-        hotkey=hotkey,
+        hotkey=node_hotkey,
         account_count=account_count,
         post_count=post_count,
         interaction_count=interaction_count,
     )
 
 
-@app.get("/miners/{hotkey}/posts", response_model=list[PostVerificationResponse])
+@app.get("/miners/{node_hotkey}/posts", response_model=list[PostVerificationResponse])
 async def get_miner_posts(
-    hotkey: str,
+    node_hotkey: str,
     node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
@@ -125,18 +125,18 @@ async def get_miner_posts(
     - skip: Number of posts to skip (for pagination)
     - limit: Maximum number of posts to return
     """
-    logger.info(f"Getting posts for miner with hotkey: {hotkey}, skip: {skip}, limit: {limit}")
+    logger.info(f"Getting posts for miner with hotkey: {node_hotkey}, skip: {skip}, limit: {limit}")
     
     # Check if node exists
-    node = await node_repo.get_by(hotkey=hotkey)
+    node = await node_repo.get_by(node_hotkey=node_hotkey)
     if not node:
-        logger.warning(f"Miner not found with hotkey: {hotkey}")
+        logger.warning(f"Miner not found with hotkey: {node_hotkey}")
         raise HTTPException(status_code=404, detail="Miner not found")
 
     # Get accounts associated with this miner
-    accounts = await account_repo.find_many(node_hotkey=hotkey)
+    accounts = await account_repo.find_many(node_hotkey=node_hotkey)
     if not accounts:
-        logger.info(f"No accounts found for miner {hotkey}")
+        logger.info(f"No accounts found for miner {node_hotkey}")
         return []
 
     # Get posts for each account
@@ -147,7 +147,7 @@ async def get_miner_posts(
         )
         all_posts.extend(posts)
     
-    logger.debug(f"Found {len(all_posts)} total posts for miner {hotkey}")
+    logger.debug(f"Found {len(all_posts)} total posts for miner {node_hotkey}")
 
     # Sort by most recent and apply pagination
     all_posts.sort(
@@ -332,7 +332,7 @@ async def verify_account(
     # If account refers to a node, it is verified
     if account and account.node_hotkey and account.node_netuid:
         node = await node_repo.get_by(
-            hotkey=account.node_hotkey, netuid=account.node_netuid
+            node_hotkey=account.node_hotkey, node_netuid=account.node_netuid
         )
         if node:
             is_verified = True

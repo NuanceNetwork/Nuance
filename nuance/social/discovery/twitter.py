@@ -151,7 +151,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                     continue
                 
                 logger.info(
-                        f"⏳ Processing reply {reply_id} from verified account with id {reply.account_id}"
+                        f"✅ {reply_id} from verified account with id {reply.account_id} discovered"
                 )
                 verified_replies.append(reply)
 
