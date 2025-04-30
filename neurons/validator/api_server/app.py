@@ -9,7 +9,6 @@ from slowapi.errors import RateLimitExceeded
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
-import nuance.constants as constants
 from nuance.database import (
     NodeRepository,
     PostRepository,
@@ -18,6 +17,7 @@ from nuance.database import (
 )
 import nuance.models as models
 from nuance.utils.logging import logger
+from nuance.settings import settings
 
 from neurons.validator.api_server.models import (
     MinerStatsResponse,
@@ -66,7 +66,7 @@ async def get_miner_stats(
     logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
     
     # Check if node exists
-    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=constants.NETUID)
+    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
     if not node:
         logger.warning(f"Miner not found with hotkey: {node_hotkey}")
         raise HTTPException(status_code=404, detail="Miner not found")
@@ -101,8 +101,57 @@ async def get_miner_stats(
         node_hotkey=node_hotkey,
         account_count=account_count,
         post_count=post_count,
-        interaction_count=interaction_count,
+        interaction_count=interaction_count
     )
+
+
+@app.get("/miners/{node_hotkey}/accounts", response_model=list[AccountVerificationResponse])
+async def get_miner_accounts(
+    node_hotkey: str,
+    node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
+    account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    skip: int = 0,
+    limit: int = 20,
+):
+    """
+    Get verified accounts associated with a specific miner.
+    
+    Returns a paginated list of social media accounts verified and managed by the miner.
+    
+    Parameters:
+    - skip: Number of accounts to skip (for pagination)
+    - limit: Maximum number of accounts to return
+    """
+    logger.info(f"Getting accounts for miner: {node_hotkey}, skip: {skip}, limit: {limit}")
+    
+    # Check if node exists
+    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
+    if not node:
+        logger.warning(f"Miner not found with hotkey: {node_hotkey}")
+        raise HTTPException(status_code=404, detail="Miner not found")
+
+    # Get accounts associated with this miner
+    accounts = await account_repo.find_many(node_hotkey=node_hotkey)
+    if not accounts:
+        logger.info(f"No accounts found for miner {node_hotkey}")
+        return []
+
+    # Sort accounts by platform type and account ID
+    accounts_sorted = sorted(accounts, key=lambda a: (a.platform_type, a.account_id))
+    paginated_accounts = accounts_sorted[skip : skip + limit]
+
+    # Create response objects
+    return [
+        AccountVerificationResponse(
+            platform_type=account.platform_type,
+            account_id=account.account_id,
+            username=account.account_username,
+            node_hotkey=account.node_hotkey,
+            node_netuid=account.node_netuid,
+            is_verified=True,  # Verified since miner exists and accounts are linked
+        )
+        for account in paginated_accounts
+    ]
 
 
 @app.get("/miners/{node_hotkey}/posts", response_model=list[PostVerificationResponse])
@@ -175,6 +224,74 @@ async def get_miner_posts(
         )
 
     return result
+
+
+@app.get("/miners/{node_hotkey}/interactions", response_model=list[InteractionResponse])
+async def get_miner_interactions(
+    node_hotkey: str,
+    node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
+    account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    skip: int = 0,
+    limit: int = 20,
+):
+    """
+    Get all interactions on content from a specific miner.
+    
+    Returns a paginated list of interactions (likes, comments, shares) across all posts
+    from all accounts managed by the miner.
+    
+    Parameters:
+    - skip: Number of interactions to skip (for pagination)
+    - limit: Maximum number of interactions to return
+    """
+    logger.info(f"Getting interactions for miner: {node_hotkey}, skip: {skip}, limit: {limit}")
+    
+    # Check if node exists
+    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
+    if not node:
+        logger.warning(f"Miner not found with hotkey: {node_hotkey}")
+        raise HTTPException(status_code=404, detail="Miner not found")
+
+    # Get all accounts for miner
+    accounts = await account_repo.find_many(node_hotkey=node_hotkey)
+    if not accounts:
+        logger.info(f"No accounts found for miner {node_hotkey}")
+        return []
+
+    all_interactions: list[models.Interaction] = []
+    for account in accounts:
+        # Get all posts for this account
+        posts = await post_repo.find_many(
+            platform_type=account.platform_type,
+            account_id=account.account_id
+        )
+        # Get interactions for each post
+        for post in posts:
+            interactions = await interaction_repo.find_many(
+                platform_type=post.platform_type,
+                post_id=post.post_id
+            )
+            all_interactions.extend(interactions)
+
+    # Sort by most recent first
+    all_interactions.sort(key=lambda x: x.created_at, reverse=True)
+    paginated_interactions = all_interactions[skip : skip + limit]
+
+    return [
+        InteractionResponse(
+            platform_type=interaction.platform_type,
+            interaction_id=interaction.interaction_id,
+            interaction_type=interaction.interaction_type,
+            post_id=interaction.post_id,
+            account_id=interaction.account_id,
+            content=interaction.content,
+            processing_status=interaction.processing_status,
+            processing_note=interaction.processing_note,
+        )
+        for interaction in paginated_interactions
+    ]
 
 
 @app.get("/posts/{platform_type}/{post_id}", response_model=PostVerificationResponse)

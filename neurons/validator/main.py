@@ -167,6 +167,7 @@ class NuanceValidator:
 
                 # Process the post
                 result: ProcessingResult = await self.pipelines["post"].process(post)
+                post: models.Post = result.output
                 post.processing_status = result.status
                 post.processing_note = json.dumps(result.details)
 
@@ -237,6 +238,7 @@ class NuanceValidator:
                             parent_post=parent_post,
                         )
                     )
+                    interaction: models.Interaction = result.output
                     interaction.processing_status = result.status
                     interaction.processing_note = json.dumps(result.details)
 
