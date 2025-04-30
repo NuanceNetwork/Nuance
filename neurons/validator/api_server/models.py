@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 class MinerStatsResponse(BaseModel):
     """Response model for miner statistics."""
     
-    hotkey: str = Field(..., description="Miner's hotkey")
+    node_hotkey: str = Field(..., description="Miner's hotkey")
     account_count: int = Field(..., description="Number of verified social accounts")
     post_count: int = Field(..., description="Number of posts submitted")
     interaction_count: int = Field(..., description="Number of interactions received")

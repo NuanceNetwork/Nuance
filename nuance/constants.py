@@ -14,4 +14,10 @@ TOPICS = [
     "nuance_subnet"
 ]
 
+CATEGORIES_WEIGHTS = {
+    "bittensor": 0.4,
+    "nuance_subnet": 0.4,
+    "else": 0.2
+}
+
 LOG_URL = "https://log.nuance.network/api/logs"

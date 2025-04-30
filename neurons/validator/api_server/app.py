@@ -9,7 +9,7 @@ from slowapi.errors import RateLimitExceeded
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
-# Import your existing database and processing components
+import nuance.constants as constants
 from nuance.database import (
     NodeRepository,
     PostRepository,
@@ -66,7 +66,7 @@ async def get_miner_stats(
     logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
     
     # Check if node exists
-    node = await node_repo.get_by(node_hotkey=node_hotkey)
+    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=constants.NETUID)
     if not node:
         logger.warning(f"Miner not found with hotkey: {node_hotkey}")
         raise HTTPException(status_code=404, detail="Miner not found")
@@ -98,7 +98,7 @@ async def get_miner_stats(
     logger.info(f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions")
 
     return MinerStatsResponse(
-        hotkey=node_hotkey,
+        node_hotkey=node_hotkey,
         account_count=account_count,
         post_count=post_count,
         interaction_count=interaction_count,

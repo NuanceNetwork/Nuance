@@ -5,6 +5,7 @@ import math
 import traceback
 
 import bittensor as bt
+import numpy as np
 
 import nuance.constants as constants
 from nuance.chain import get_commitments
@@ -315,7 +316,7 @@ class NuanceValidator:
                 )
 
                 # 2. Calculate scores for all miners (keyed by hotkey)
-                node_scores = {}
+                node_scores: dict[str, dict[str, float]] = {} # {hotkey: {category: score}}
 
                 for interaction in recent_interactions:
                     try:
@@ -372,16 +373,18 @@ class NuanceValidator:
                         miner_hotkey = node.node_hotkey
 
                         # Calculate score for this interaction
-                        score = self._calculate_interaction_score(
+                        interaction_scores = self._calculate_interaction_score(
                             interaction=interaction,
                             cutoff_date=cutoff_date,
                         )
 
                         # Add to node's score
-                        if score > 0:
-                            if miner_hotkey not in node_scores:
-                                node_scores[miner_hotkey] = 0.0
-                            node_scores[miner_hotkey] += score
+                        if miner_hotkey not in node_scores:
+                            node_scores[miner_hotkey] = {}
+                        for category, score in interaction_scores.items():
+                            if category not in node_scores[miner_hotkey]:
+                                node_scores[miner_hotkey][category] = 0.0
+                            node_scores[miner_hotkey][category] += score
 
                     except Exception as e:
                         logger.error(
@@ -389,11 +392,27 @@ class NuanceValidator:
                         )
 
                 # 3. Set weights for all nodes
-                weights = [0.0] * len(self.metagraph.hotkeys)
-                for hotkey, score in node_scores.items():
+                # We create a score array for each category
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+                for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
-                        weights[self.metagraph.hotkeys.index(hotkey)] = score
-
+                        for category, score in scores.items():
+                            categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
+                            
+                # Normalize scores for each category
+                for category in categories_scores:
+                    categories_scores[category] = np.nan_to_num(categories_scores[category], 0)
+                    if np.sum(categories_scores[category]) > 0:
+                        categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
+                    else:
+                        categories_scores[category] = np.ones(len(self.metagraph.hotkeys)) / len(self.metagraph.hotkeys)
+                        
+                # Weighted sum of categories
+                scores = np.zeros(len(self.metagraph.hotkeys))
+                for category in categories_scores:
+                    scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+                
+                weights = scores.tolist()
                 logger.info(f"Weights: {weights}")
                 # 4. Update metagraph with new weights
                 await self.subtensor.set_weights(
@@ -415,7 +434,7 @@ class NuanceValidator:
         self,
         interaction: models.Interaction,
         cutoff_date: datetime.datetime,
-    ) -> float:
+    ) -> dict[str, float]:
         """
         Calculate score for an interaction based on type, recency, and account influence.
 
@@ -425,7 +444,7 @@ class NuanceValidator:
             cutoff_date: The date beyond which interactions are not scored (14 days ago)
 
         Returns:
-            float: The calculated score
+            dict[str, float]: The calculated score for each category
         """
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
@@ -449,16 +468,18 @@ class NuanceValidator:
         followers = interaction.social_account.extra_data.get("followers_count", 0)
         influence_factor = min(1.0, followers / 10000)  # Cap at 1.0
         
-        # Bonus score for topics
-        topics = interaction.post.topics
-        topic_factor = 1
-        if topics and len(topics) > 0:
-            topic_factor = 2
-            
-        # Calculate final score
-        final_score = base_score * recency_factor * math.log(1 + influence_factor) * topic_factor
-
-        return final_score
+        score = base_score * recency_factor * math.log(1 + influence_factor)
+        
+        # Scores for categories / topics (all same as score above)
+        post_topics = interaction.post.topics
+        if not post_topics:
+            interaction_scores: dict[str, float] = {"else": score}
+        else:
+            interaction_scores: dict[str, float] = {
+                topic: score for topic in constants.TOPICS
+            }
+        
+        return interaction_scores
 
 if __name__ == "__main__":
     validator = NuanceValidator()
