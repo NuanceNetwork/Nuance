@@ -92,24 +92,17 @@ class NuanceChecker(Processor):
             
             if is_nuanced:
                 logger.info(f"✅ Post {post_id} is nuanced")
-                
-                # Create updated post with nuance information
-                updated_post = post.model_copy()
-                
                 return ProcessingResult(
                     status=models.ProcessingStatus.ACCEPTED,
-                    output=updated_post, 
+                    output=post, 
                     processor_name=self.processor_name,
                     details={"nuance_status": "approved", "llm_response": llm_response}
                 )
             else:
-                # Create updated post with rejection reason
-                updated_post = post.model_copy()
-                
                 logger.info(f"🚫 Post {post_id} is not nuanced")
                 return ProcessingResult(
                     status=models.ProcessingStatus.REJECTED,
-                    output=updated_post, 
+                    output=post, 
                     processor_name=self.processor_name,
                     reason="Content lacks nuance",
                     details={"llm_response": llm_response}
