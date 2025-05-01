@@ -8,6 +8,8 @@ erDiagram
     Node {
         string node_hotkey PK
         int node_netuid PK
+        datetime _record_created_at
+        datetime _record_updated_at
     }
     
     SocialAccount {
@@ -18,6 +20,8 @@ erDiagram
         int node_netuid FK
         datetime created_at
         json extra_data
+        datetime _record_created_at
+        datetime _record_updated_at
     }
     
     Post {
@@ -30,6 +34,8 @@ erDiagram
         json extra_data
         enum processing_status
         string processing_note
+        datetime _record_created_at
+        datetime _record_updated_at
     }
     
     Interaction {
@@ -43,5 +49,7 @@ erDiagram
         json extra_data
         enum processing_status
         string processing_note
+        datetime _record_created_at
+        datetime _record_updated_at
     }
 ```

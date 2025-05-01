@@ -3,6 +3,7 @@ flowchart TB
     subgraph External
         BT[Bittensor Chain]
         SP[Social Platforms]
+        LLM[LLM Service]
     end
     
     DB[(Database)]
@@ -12,7 +13,6 @@ flowchart TB
         SCP[Social Content Provider]
         PP[Post Pipeline]
         IP[Interaction Pipeline]
-        LLM[LLM Service]
     end
     
     BT <--> CI

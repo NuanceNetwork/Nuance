@@ -30,6 +30,9 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
     sudo apt update
     sudo apt install docker-ce
+    # Check Docker installation
+    docker --version
+    docker run hello-world
 
     # Install Docker Compose
     sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
@@ -156,6 +159,9 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    You can start the validator manually with the following steps:
 
    ```sh
+   # Sync uv dependencies
+   uv sync
+
    # Start the PostgreSQL database using Docker Compose
    docker-compose up -d
 
@@ -185,8 +191,9 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    ```
 
    The script will:
-   1. Start the PostgreSQL database
-   2. Run the Alembic migrations
-   3. Start the validator with PM2
+   1. Sync uv dependencies
+   2. Start the PostgreSQL database
+   3. Run the Alembic migrations
+   4. Start the validator with PM2
 
    The validator will read all configuration from your `.env` file, so you don't need to pass any parameters as command-line arguments.

@@ -3,47 +3,80 @@ sequenceDiagram
     participant Chain as Bittensor Chain
     participant Validator as NuanceValidator
     participant SCP as SocialContentProvider
-    participant Platform as Social Platform
     participant PP as Post Pipeline
     participant IP as Interaction Pipeline
-    participant LLM as LLM Service
     participant DB as Database
+    participant Cache as Memory Cache
     
+    Note over Validator: Initialize components
+    
+    %% Content Discovery
     Validator->>Chain: get_commitments()
     Chain-->>Validator: commits
     
     loop For each commit
-        Validator->>SCP: verify_account(commit)
-        SCP->>Platform: verify_account_ownership()
-        Platform-->>SCP: verification result
-        SCP-->>Validator: verified (yes/no)
+        Validator->>DB: Upsert node
+        Validator->>SCP: verify_account(commit, node)
+        SCP-->>Validator: account or error
         
         alt Account verified
-            Validator->>SCP: discover_content(commit)
-            SCP->>Platform: get posts & interactions
-            Platform-->>SCP: posts, interactions
-            SCP-->>Validator: content
+            Validator->>DB: Upsert social account
+            Validator->>SCP: discover_contents(account)
+            SCP-->>Validator: discovered_content
             
-            loop For each post
-                Validator->>PP: process(post)
-                PP->>LLM: query for nuance check
-                LLM-->>PP: result
-                PP->>LLM: query for topic tagging
-                LLM-->>PP: result
-                PP-->>Validator: processing result
-                Validator->>DB: store processed post
+            loop For new posts
+                Validator->>Validator: Add to post_queue
             end
             
-            loop For each interaction
-                Validator->>IP: process(interaction + parent_post)
-                IP->>LLM: query for sentiment analysis
-                LLM-->>IP: result
-                IP-->>Validator: processing result with score
-                Validator->>DB: update scores
+            loop For new interactions
+                Validator->>Validator: Add to interaction_queue
             end
         end
     end
     
-    Validator->>Chain: calculate & set weights
+    Note over Validator: Worker tasks run concurrently
+    
+    %% Post Processing
+    Validator->>Validator: Dequeue from post_queue
+    Validator->>PP: process(post)
+    PP-->>Validator: processing_result
+    Validator->>DB: Upsert processed post
+    Validator->>Cache: Update processed_posts_cache
+    
+    alt Waiting interactions exist
+        Validator->>Validator: Move to interaction_queue
+    end
+    
+    %% Interaction Processing
+    Validator->>Validator: Dequeue from interaction_queue
+    Validator->>Cache: Check for parent post
+    Cache-->>Validator: parent_post (if exists)
+    
+    alt Parent post not in cache
+        Validator->>DB: Get parent post
+        DB-->>Validator: parent_post
+    end
+    
+    alt Parent post processed & accepted
+        Validator->>IP: process(interaction, parent_post)
+        IP-->>Validator: processing_result
+        Validator->>DB: Upsert processed interaction
+    else Parent post not processed
+        Validator->>Cache: Add to waiting_interactions
+    end
+    
+    %% Score Aggregation
+    Validator->>DB: Get recent accepted interactions
+    DB-->>Validator: recent_interactions
+    
+    loop For each interaction
+        Validator->>DB: Get associated data (post, accounts, node)
+        DB-->>Validator: data
+        Validator->>Validator: Calculate interaction score
+        Validator->>Validator: Add to node_scores[hotkey]
+    end
+    
+    Validator->>Validator: Normalize scores & calculate weights
+    Validator->>Chain: set_weights(weights)
     Chain-->>Validator: confirmation
 ```

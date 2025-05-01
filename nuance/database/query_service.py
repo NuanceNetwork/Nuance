@@ -1,6 +1,9 @@
+# nuance/database/query_service.py
 from datetime import datetime
+from typing import Callable, AsyncContextManager
 
 import sqlalchemy as sa
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from nuance.models import Node, SocialAccount, Post, Interaction
 from nuance.database.schema import (
@@ -19,7 +22,7 @@ class QueryService:
     """Service for complex queries that span multiple aggregates."""
 
     def __init__(self, session_factory):
-        self.session_factory = session_factory
+        self.session_factory: Callable[[], AsyncContextManager[AsyncSession]] = session_factory
 
     async def get_recent_interactions_with_miners(
         self, since_date: datetime
