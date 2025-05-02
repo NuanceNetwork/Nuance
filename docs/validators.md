@@ -8,14 +8,14 @@ Below is the minimum system requirements for running a validator node on the Nua
 - 8-Core CPU
 - 16-GB RAM
 - 512-GB Storage
-- Docker and Docker Compose
+- Docker
 
 ## Setup Instructions
 To set up a validator node on the Nuance Subnet, follow these steps:
 
 1. Prerequisites
 
-    Make sure your machine have **Python**, **pip**, **Docker** and **Docker Compose** installed
+    Make sure your machine have **Python**, **pip**, and **Docker** installed
     ```sh
     # Install Python 3.10
     sudo apt update
@@ -24,19 +24,12 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     # Install pip for Python 3.10
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 
-    # Install Docker
+    # Install Docker (includes Docker Compose)
     sudo apt install apt-transport-https ca-certificates curl software-properties-common
     curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
     sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
     sudo apt update
-    sudo apt install docker-ce
-    # Check Docker installation
-    docker --version
-    docker run hello-world
-
-    # Install Docker Compose
-    sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-    sudo chmod +x /usr/local/bin/docker-compose
+    sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
     # Add your user to the docker group to run docker without sudo
     sudo usermod -aG docker $USER
@@ -46,7 +39,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     python3.10 --version
     pip --version
     docker --version
-    docker-compose --version
+    docker compose version
     ```
 
 2. Install the latest version of the Nuance Subnet repository
