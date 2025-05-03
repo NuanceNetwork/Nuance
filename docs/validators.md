@@ -46,7 +46,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     ```sh
     # Clone the repository
     git clone https://github.com/NuanceNetwork/Nuance
-    cd nuance
+    cd Nuance
 
     # Environment setup with uv
     sudo pip install uv
@@ -156,7 +156,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    uv sync
 
    # Start the PostgreSQL database using Docker Compose
-   docker-compose up -d
+   docker compose up -d
 
    # Run alembic migrations
    uv run alembic upgrade head

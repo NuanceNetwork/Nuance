@@ -45,7 +45,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve twitter post/ tweet data using Datura API.
         """
-        api_url = f"https://apis.datura.ai/twitter/post"
+        api_url = "https://apis.datura.ai/twitter/post"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
