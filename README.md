@@ -14,17 +14,26 @@ In this subnet, miners are rewarded for contributing factual and nuanced posts a
 - **Mechanism**: Miners are incentivized to create content that is both factual and nuanced. Their rewards are determined by the level of engagement their content receives from verified users.
 - **Engagement**: The focus is on interactions such as replies, which are currently easier to track on X, but the system is designed to be adaptable to other social platforms in the future.
 
-## Validator Setup
-
-The validator plays a crucial role in ensuring the integrity and quality of the content within the subnet. The main logic loop of the validator involves several steps:
+The validator implements this incentive mechanism through several key steps:
 
 1. **Account Verification**: Miners commit their X account username and verification post ID on-chain. Validators verify miners by checking that the verification post quotes the Nuance announcement post and contains the miner's hotkey.
-2. **Content Discovery**: Validators query on-chain commits to retrieve miners' X accounts. They then discover new posts made by miners, filtering them through Large Language Models (LLM) to ensure the content is nuanced and relevant to specific subjects, such as bittensor.
-3. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
-4. **Scoring**: Interactions are scored based on the number of followers the interacting user has, with higher scores for more influential users.
-5. **Score Calculation**: Miners' scores are calculated using an Exponential Moving Average (EMA) to ensure a fair and dynamic reward system.
 
-By focusing on these elements, Nuance aims to create a sustainable and impactful media ecosystem that rewards quality and integrity.
+2. **Content Discovery**: Validators query on-chain commits to retrieve miners' X accounts. They then discover new posts made by miners, filtering them through Large Language Models (LLM) to ensure the content is nuanced and relevant to specific subjects, such as bittensor.
+
+3. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
+
+4. **Scoring**: Interactions are scored based on multiple factors:
+   - **Interaction Type**: Replies is the only supported interaction type at the moment
+   - **Recency**: Only interactions within the last 14 days are considered, with newer interactions weighted higher
+   - **Account Influence**: Higher scores for interactions from accounts with more followers
+   - **Content Categories**: Scores are weighted by topic categories, allowing emphasis on specific subjects
+
+5. **Score Aggregation**: Final scores are calculated by:
+   - Normalizing scores within each category
+   - Applying category weights to prioritize certain topics
+   - Setting weights on the Bittensor chain to determine miner rewards
+
+This approach ensures that quality content receives appropriate recognition while maintaining focus on the most relevant topics for the community.
 
 ## Validator Setup
 
