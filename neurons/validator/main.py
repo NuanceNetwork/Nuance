@@ -449,6 +449,7 @@ class NuanceValidator:
         Returns:
             dict[str, float]: The calculated score for each category
         """
+        interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
             return 0.0
