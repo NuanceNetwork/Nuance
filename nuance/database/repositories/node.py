@@ -2,7 +2,7 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from nuance.database.schema import Node as NodeORM
 from nuance.database.repositories.base import BaseRepository
@@ -41,12 +41,18 @@ class NodeRepository(BaseRepository[NodeORM, Node]):
         async with self.session_factory() as session:
             # All fields are in primary key so no update
             stmt = (
-                pg_insert(NodeORM)
+                sqlite_insert(NodeORM)
                 .values(
                     node_hotkey=entity.node_hotkey,
                     node_netuid=entity.node_netuid,
                 )
-                .on_conflict_do_nothing(constraint="uq_node_hotkey_node_netuid")
+                .on_conflict_do_nothing(
+                    index_elements=["node_hotkey", "node_netuid"],
+                    index_where=sa.and_(
+                        NodeORM.node_hotkey == entity.node_hotkey,
+                        NodeORM.node_netuid == entity.node_netuid,
+                    )
+                )
             )
 
             # Execute the statement

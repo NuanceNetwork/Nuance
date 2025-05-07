@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import Field, PostgresDsn
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv(override=True)
@@ -30,9 +30,9 @@ class Settings(BaseSettings):
     NINETEEN_API_KEY: str = Field(default="", description="Nineteen API key.")
     
     # Database settings
-    DATABASE_URL: PostgresDsn = Field(
-        default="postgresql+asyncpg://user:password@localhost:5432/nuance",
-        description="Database connection URL (PostgreSQL with asyncpg driver)"
+    DATABASE_URL: str = Field(
+        default="sqlite+aiosqlite:///./nuance.db",
+        description="Database connection URL (SQLite with aiosqlite driver)"
     )
     DATABASE_POOL_SIZE: int = Field(
         default=5,

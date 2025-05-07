@@ -15,12 +15,12 @@ uv sync
 echo "Dependencies synced successfully."
 
 # 2. Start PostgreSQL database
-echo "Starting PostgreSQL database..."
-if ! docker compose up -d; then
-    echo "Error: Failed to start PostgreSQL database"
-    exit 1
-fi
-echo "PostgreSQL database started."
+# echo "Starting PostgreSQL database..."
+# if ! docker compose up -d; then
+#     echo "Error: Failed to start PostgreSQL database"
+#     exit 1
+# fi
+# echo "PostgreSQL database started."
 
 # Wait to ensure database is ready
 echo "Waiting for database to be ready..."

@@ -2,7 +2,7 @@
 from typing import Optional
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from nuance.database.schema import Post as PostORM
 from nuance.models import Post, ProcessingStatus
@@ -98,10 +98,15 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 update_dict = {k: v for k, v in update_dict.items() if bool(v)}
 
             stmt = (
-                pg_insert(PostORM)
+                sqlite_insert(PostORM)
                 .values(values_dict)
                 .on_conflict_do_update(
-                    constraint="uq_platform_type_post_id",
+                    # constraint="uq_platform_type_post_id",
+                    index_elements=["platform_type", "post_id"],
+                    index_where=sa.and_(
+                        PostORM.platform_type == entity.platform_type,
+                        PostORM.post_id == entity.post_id,
+                    ),
                     set_=update_dict
                 )
             )

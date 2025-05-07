@@ -2,7 +2,7 @@
 import datetime
 
 import sqlalchemy as sa
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from nuance.database.schema import Interaction as InteractionORM
 from nuance.models import Interaction, ProcessingStatus
@@ -103,10 +103,16 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
                 update_dict = {k: v for k, v in update_dict.items() if bool(v)}
 
             stmt = (
-                pg_insert(InteractionORM)
+                sqlite_insert(InteractionORM)
                 .values(values_dict)
                 .on_conflict_do_update(
-                    constraint="uq_platform_type_interaction_id", set_=update_dict
+                    index_elements=["platform_type", "interaction_id"],
+                    index_where=sa.and_(
+                        InteractionORM.platform_type == entity.platform_type,
+                        InteractionORM.interaction_id == entity.interaction_id,
+                    ),
+                    # This is the update part
+                    set_=update_dict
                 )
             )
 

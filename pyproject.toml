@@ -13,6 +13,7 @@ dependencies = [
     "sqlalchemy>=2.0.40",
     "alembic>=1.15.2",
     "psycopg2-binary>=2.9.10",
+    "aiosqlite>=0.21.0",
 ]
 
 [project.optional-dependencies]
