@@ -14,19 +14,7 @@ echo "Syncing dependencies with uv..."
 uv sync
 echo "Dependencies synced successfully."
 
-# 2. Start PostgreSQL database
-# echo "Starting PostgreSQL database..."
-# if ! docker compose up -d; then
-#     echo "Error: Failed to start PostgreSQL database"
-#     exit 1
-# fi
-# echo "PostgreSQL database started."
-
-# Wait to ensure database is ready
-echo "Waiting for database to be ready..."
-sleep 5
-
-# 3. Run Alembic migrations
+# 2. Run Alembic migrations
 echo "Running database migrations..."
 if ! uv run alembic upgrade head; then
     echo "Error: Failed to run database migrations"
@@ -34,12 +22,12 @@ if ! uv run alembic upgrade head; then
 fi
 echo "Database migrations completed."
 
-# 4. Check if validator is already running
+# 3. Check if validator is already running
 if pm2 list | grep -q "validator_sn23"; then
     echo "Validator is already running. Restarting..."
     pm2 restart validator_sn23
 else
-    # 5. Start the validator with PM2
+    # 4. Start the validator with PM2
     echo "Starting validator with PM2..."
     if ! pm2 start uv --name "validator_sn23" -- run python -m neurons.validator.main; then
         echo "Error: Failed to start validator"

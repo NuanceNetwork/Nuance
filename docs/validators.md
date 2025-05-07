@@ -8,14 +8,13 @@ Below is the minimum system requirements for running a validator node on the Nua
 - 8-Core CPU
 - 16-GB RAM
 - 512-GB Storage
-- Docker
 
 ## Setup Instructions
 To set up a validator node on the Nuance Subnet, follow these steps:
 
 1. Prerequisites
 
-    Make sure your machine have **Python**, **pip**, and **Docker** installed
+    Make sure your machine have **Python** and **pip** installed
     ```sh
     # Install Python 3.10
     sudo apt update
@@ -24,22 +23,9 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     # Install pip for Python 3.10
     curl -sS https://bootstrap.pypa.io/get-pip.py | python3.10
 
-    # Install Docker (includes Docker Compose)
-    sudo apt install apt-transport-https ca-certificates curl software-properties-common
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-    sudo apt update
-    sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    # Add your user to the docker group to run docker without sudo
-    sudo usermod -aG docker $USER
-    # Log out and log back in for this to take effect
-
     # Verify installations
     python3.10 --version
     pip --version
-    docker --version
-    docker compose version
     ```
 
 2. Install the latest version of the Nuance Subnet repository
@@ -112,7 +98,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     DATURA_API_KEY=your_datura_api_key_here
     
     # Database configuration
-    DATABASE_URL=postgresql+asyncpg://user:password@127.0.0.1:5432/nuance
+    DATABASE_URL=sqlite+aiosqlite:///./nuance.db
     ```
 
     The `.env` file supports many configuration options:
@@ -131,8 +117,8 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     DATURA_API_KEY=your_datura_api_key_here
     NINETEEN_API_KEY=your_19_api_key        # Optional
 
-    # Database configuration - should match docker-compose.yml
-    DATABASE_URL=postgresql+asyncpg://user:password@127.0.0.1:5432/nuance
+    # Database configuration
+    DATABASE_URL=sqlite+aiosqlite:///./nuance.db
     
     # Database connection pool settings
     DATABASE_POOL_SIZE=5
@@ -154,9 +140,6 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    ```sh
    # Sync uv dependencies
    uv sync
-
-   # Start the PostgreSQL database using Docker Compose
-   docker compose up -d
 
    # Run alembic migrations
    uv run alembic upgrade head
@@ -185,8 +168,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
 
    The script will:
    1. Sync uv dependencies
-   2. Start the PostgreSQL database
-   3. Run the Alembic migrations
-   4. Start the validator with PM2
+   2. Run the Alembic migrations
+   3. Start the validator with PM2
 
    The validator will read all configuration from your `.env` file, so you don't need to pass any parameters as command-line arguments.
