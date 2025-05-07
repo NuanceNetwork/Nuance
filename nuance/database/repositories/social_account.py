@@ -2,7 +2,7 @@
 from typing import Optional, List
 
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from nuance.database.schema import SocialAccount as SocialAccountORM
 from nuance.models import SocialAccount
@@ -91,7 +91,7 @@ class SocialAccountRepository(BaseRepository[SocialAccountORM, SocialAccount]):
                 update_dict = {k: v for k, v in update_dict.items() if bool(v)}
 
             stmt = (
-                pg_insert(SocialAccountORM)
+                sqlite_insert(SocialAccountORM)
                 .values(values_dict)
                 .on_conflict_do_update(
                     constraint="uq_platform_type_account_id", set_=update_dict

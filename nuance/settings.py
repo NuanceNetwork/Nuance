@@ -31,8 +31,8 @@ class Settings(BaseSettings):
     
     # Database settings
     DATABASE_URL: PostgresDsn = Field(
-        default="postgresql+asyncpg://user:password@localhost:5432/nuance",
-        description="Database connection URL (PostgreSQL with asyncpg driver)"
+        default="sqlite+aiosqlite:///./nuance.db",
+        description="Database connection URL (SQLite with aiosqlite driver)"
     )
     DATABASE_POOL_SIZE: int = Field(
         default=5,

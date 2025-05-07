@@ -13,7 +13,7 @@ from nuance.settings import settings
 
 class DatabaseSessionManager:
     """
-    Singleton manager for database sessions using PostgreSQL.
+    Singleton manager for database sessions using SQLite.
     Handles async session creation and connection management.
     """
     _instance = None
