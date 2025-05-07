@@ -1,20 +1,20 @@
 import asyncio
 import datetime
-import base58
 import hashlib
 import shelve
 from typing import cast
-from types import SimpleNamespace
 
+import base58
 import bittensor as bt
 from bittensor.core.chain_data.utils import decode_metadata
-import nuance.models as models
 from loguru import logger
+
+import nuance.models as models
 
 
 async def get_commitments(
     subtensor: bt.async_subtensor, metagraph: bt.metagraph, netuid: int
-) -> dict[str, SimpleNamespace]:
+) -> dict[str, models.Commit]:
     """
     Retrieve commitments for all miner hotkeys.
     """
@@ -28,7 +28,7 @@ async def get_commitments(
             for hotkey in metagraph.hotkeys
         ]
     )
-    result: dict[str, SimpleNamespace] = {}
+    result: dict[str, models.Commit] = {}
     for uid, hotkey in enumerate(metagraph.hotkeys):
         commit = cast(dict, commits[uid])
         if commit:
