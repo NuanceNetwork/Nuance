@@ -106,7 +106,13 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
                 sqlite_insert(InteractionORM)
                 .values(values_dict)
                 .on_conflict_do_update(
-                    constraint="uq_platform_type_interaction_id", set_=update_dict
+                    index_elements=["platform_type", "interaction_id"],
+                    index_where=sa.and_(
+                        InteractionORM.platform_type == entity.platform_type,
+                        InteractionORM.interaction_id == entity.interaction_id,
+                    ),
+                    # This is the update part
+                    set_=update_dict
                 )
             )
 

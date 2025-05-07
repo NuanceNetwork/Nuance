@@ -101,7 +101,12 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 sqlite_insert(PostORM)
                 .values(values_dict)
                 .on_conflict_do_update(
-                    constraint="uq_platform_type_post_id",
+                    # constraint="uq_platform_type_post_id",
+                    index_elements=["platform_type", "post_id"],
+                    index_where=sa.and_(
+                        PostORM.platform_type == entity.platform_type,
+                        PostORM.post_id == entity.post_id,
+                    ),
                     set_=update_dict
                 )
             )

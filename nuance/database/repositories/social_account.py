@@ -1,6 +1,7 @@
 # database/repositories/social_account.py
 from typing import Optional, List
 
+import sqlalchemy as sa
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
@@ -94,7 +95,14 @@ class SocialAccountRepository(BaseRepository[SocialAccountORM, SocialAccount]):
                 sqlite_insert(SocialAccountORM)
                 .values(values_dict)
                 .on_conflict_do_update(
-                    constraint="uq_platform_type_account_id", set_=update_dict
+                    # constraint="uq_platform_type_account_id", 
+                    index_elements=["platform_type", "account_id"],
+                    index_where=sa.and_(
+                        SocialAccountORM.platform_type == entity.platform_type,
+                        SocialAccountORM.account_id == entity.account_id,
+                    ),
+                    # Set the fields to update
+                    set_=update_dict
                 )
             )
 

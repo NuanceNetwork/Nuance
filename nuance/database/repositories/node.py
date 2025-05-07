@@ -46,7 +46,13 @@ class NodeRepository(BaseRepository[NodeORM, Node]):
                     node_hotkey=entity.node_hotkey,
                     node_netuid=entity.node_netuid,
                 )
-                .on_conflict_do_nothing(constraint="uq_node_hotkey_node_netuid")
+                .on_conflict_do_nothing(
+                    index_elements=["node_hotkey", "node_netuid"],
+                    index_where=sa.and_(
+                        NodeORM.node_hotkey == entity.node_hotkey,
+                        NodeORM.node_netuid == entity.node_netuid,
+                    )
+                )
             )
 
             # Execute the statement

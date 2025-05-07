@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from pydantic import Field, PostgresDsn
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv(override=True)
@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     NINETEEN_API_KEY: str = Field(default="", description="Nineteen API key.")
     
     # Database settings
-    DATABASE_URL: PostgresDsn = Field(
+    DATABASE_URL: str = Field(
         default="sqlite+aiosqlite:///./nuance.db",
         description="Database connection URL (SQLite with aiosqlite driver)"
     )
