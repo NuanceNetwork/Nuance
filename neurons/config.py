@@ -9,10 +9,6 @@ def get_config(parser=ArgumentParser()) -> bt.Config:
     bt.subtensor.add_args(parser)
     bt.axon.add_args(parser)
     bt.logging.add_args(parser)
-    parser.add_argument("--netuid", type=int)
-    parser.add_argument("--neuron.fullpath", type=str, default="")
-    parser.add_argument("--validator.db_filename", type=str, default="validator.db")
-    parser.add_argument("--validator.db_api_port", type=int, default=8080)
     config = bt.config(parser)
     bt.logging.check_config(config)
     full_path = os.path.expanduser(

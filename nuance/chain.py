@@ -1,19 +1,20 @@
 import asyncio
 import datetime
-import base58
 import hashlib
 import shelve
 from typing import cast
-from types import SimpleNamespace
 
+import base58
 import bittensor as bt
 from bittensor.core.chain_data.utils import decode_metadata
 from loguru import logger
 
+import nuance.models as models
+
 
 async def get_commitments(
     subtensor: bt.async_subtensor, metagraph: bt.metagraph, netuid: int
-) -> dict[str, SimpleNamespace]:
+) -> dict[str, models.Commit]:
     """
     Retrieve commitments for all miner hotkeys.
     """
@@ -27,22 +28,24 @@ async def get_commitments(
             for hotkey in metagraph.hotkeys
         ]
     )
-    result: dict[str, SimpleNamespace] = {}
+    result: dict[str, models.Commit] = {}
     for uid, hotkey in enumerate(metagraph.hotkeys):
         commit = cast(dict, commits[uid])
         if commit:
             try:
                 decoded_commit = decode_metadata(commit)
-                account_id, verification_post_id = decoded_commit.split("@")
+                logger.info(f"🔍 Decoded commitment: {decoded_commit}")
+                username, verification_post_id = decoded_commit.split("@")
             except Exception as e:
                 logger.error(f"❌ Error getting commitment for hotkey {hotkey}: {e}")
                 continue
                 
-            result[hotkey] = SimpleNamespace(
+            result[hotkey] = models.Commit(
                 uid=uid,
-                hotkey=hotkey,
-                block=commit["block"],
-                account_id=account_id,
+                node_hotkey=hotkey,
+                node_netuid=netuid,
+                platform=models.PlatformType.TWITTER,
+                username=username,
                 verification_post_id=verification_post_id,
             )
             logger.debug(f"🔍 Found commitment for hotkey {hotkey}.")

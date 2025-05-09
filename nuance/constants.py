@@ -1,10 +1,8 @@
-import csv
-
-from loguru import logger
 from nuance.settings import settings
 
+
 SCORING_HOUR = 16
-EPOCH_LENGTH = 300 if not settings.TESTNET else 50 # blocks (12s per block)
+EPOCH_LENGTH = 300 * 12 if not settings.DEBUG else 50 * 12 # seconds
 
 NUANCE_CONSTITUTION_STORE_URL = "https://raw.githubusercontent.com/NuanceNetwork/constitution/refs/heads/main/" # Github URL
 NUANCE_CONSTITUTION_UPDATE_INTERVAL = 3600 # 1 hour
@@ -15,3 +13,11 @@ TOPICS = [
     "bittensor",
     "nuance_subnet"
 ]
+
+CATEGORIES_WEIGHTS = {
+    "bittensor": 0.4,
+    "nuance_subnet": 0.4,
+    "else": 0.2
+}
+
+LOG_URL = "https://log.nuance.network/api/logs"

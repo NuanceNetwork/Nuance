@@ -5,7 +5,23 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "asyncpg>=0.30.0",
     "bittensor>=9.1.0",
     "loguru>=0.7.3",
+    "uv>=0.6.16",
     "pydantic-settings>=2.8.1",
+    "sqlalchemy>=2.0.40",
+    "alembic>=1.15.2",
+    "psycopg2-binary>=2.9.10",
+    "aiosqlite>=0.21.0",
 ]
+
+[project.optional-dependencies]
+api = [
+    "scalar-fastapi>=1.0.3",
+    "slowapi>=0.1.9",
+]
+
+[tool.setuptools]
+include-package-data = true
+packages = ["nuance", "neurons"]  # Explicitly list packages
