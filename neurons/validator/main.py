@@ -415,14 +415,29 @@ class NuanceValidator:
                 for category in categories_scores:
                     scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
                 
-                weights = scores.tolist()
-                logger.info(f"Weights: {weights}")
+                scores_weights = scores.tolist()
+
+                # Burn
+                alpha_burn_weights = [0.0] * len(self.metagraph.hotkeys)
+                owner_hotkey = "5H8bQJmEtBKdwSGf4ityQ7kCDYM4bp8Xrp8K8tTA2Q8RYVp6"
+                owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
+                logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
+                alpha_burn_weights[owner_hotkey_index] = 1
+                
+                # Combine weights
+                alpha_burn_ratio = 0.7
+                combined_weights = [
+                    (alpha_burn_ratio * alpha_burn_weight) + ((1 - alpha_burn_ratio) * score_weight)
+                    for alpha_burn_weight, score_weight in zip(alpha_burn_weights, scores_weights)
+                ]
+
+                logger.info(f"Weights: {combined_weights}")
                 # 4. Update metagraph with new weights
                 await self.subtensor.set_weights(
                     wallet=self.wallet,
                     netuid=settings.NETUID,
-                    uids=list(range(len(weights))),
-                    weights=weights,
+                    uids=list(range(len(combined_weights))),
+                    weights=combined_weights,
                 )
                 logger.info(f"✅ Updated weights on block {current_block}.")
 
