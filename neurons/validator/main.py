@@ -419,7 +419,7 @@ class NuanceValidator:
 
                 # Burn
                 alpha_burn_weights = [0.0] * len(self.metagraph.hotkeys)
-                owner_hotkey = "5H8bQJmEtBKdwSGf4ityQ7kCDYM4bp8Xrp8K8tTA2Q8RYVp6"
+                owner_hotkey = "5HN1QZq7MyGnutpToCZGdiabP3D339kBjKXfjb1YFaHacdta"
                 owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
                 logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
                 alpha_burn_weights[owner_hotkey_index] = 1
