@@ -1,0 +1,68 @@
+site_name: Nuance
+site_url: https://example.com/
+repo_name: NuanceNetwork/Nuance
+repo_url: https://github.com/NuanceNetwork/Nuance
+
+theme:
+  name: material
+  palette:
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - search.highlight
+    - search.share
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme)"
+      toggle:
+        icon: material/brightness-auto
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: redteam
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: red
+      accent: red
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+nav:
+  - Home: index.md
+  - Validators: validators.md
+  - Miners: miners.md
+  - Development:
+    - Overview: dev/overall_architecture.md
+    - Class Structure: dev/class.md
+    - Data Flow: dev/data_flow.md
+    - Database Schema: dev/db_schema.md
+    - Processing Flow: dev/processing_flow.md
+    - Validator: dev/validator.md
+    - Packages:
+      - Database: dev/packages/database_package.md
+      - Processing: dev/packages/processing_package.md
+      - Social: dev/packages/social_package.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+plugins:
+  - search
+  - mkdocstrings

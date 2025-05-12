@@ -1,3 +1,9 @@
+---
+hide:
+  - navigation
+#   - toc
+---
+
 # Validator Setup
 
 ## Minimum System Requirements
@@ -154,7 +160,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    pm2 logs validator_sn23
    ```
 
-   ### Automated Startup (Alternative)
+   **Automated Startup (Alternative)**
 
    Alternatively, you can use the provided startup script to automate these steps:
 
@@ -167,6 +173,7 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    ```
 
    The script will:
+
    1. Sync uv dependencies
    2. Run the Alembic migrations
    3. Start the validator with PM2

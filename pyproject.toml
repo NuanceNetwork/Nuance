@@ -21,6 +21,11 @@ api = [
     "scalar-fastapi>=1.0.3",
     "slowapi>=0.1.9",
 ]
+docs = [
+    "mkdocs>=1.6.1",
+    "mkdocs-material>=9.6.13",
+    "mkdocstrings[python]>=0.29.1",
+]
 
 [tool.setuptools]
 include-package-data = true
