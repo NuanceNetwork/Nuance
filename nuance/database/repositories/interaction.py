@@ -1,5 +1,6 @@
 # database/repositories/interaction.py
 import datetime
+from typing import Optional
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -44,28 +45,32 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
         )
 
     async def get_recent_interactions(
-        self, since_date: datetime.datetime, processing_status: ProcessingStatus = None
+        self, cutoff_date: datetime.datetime, **filters
     ) -> list[Interaction]:
         """
         Get all processed interactions since the given date.
 
         Args:
-            since_date: Only include interactions newer than this date
+            cutoff_date: Only include interactions newer than this date
+            **filters: Additional filters to apply (e.g., platform_type, processing_status)
 
         Returns:
             List of processed interactions
         """
         async with self.session_factory() as session:
-            query = sa.select(InteractionORM).where(
-                InteractionORM.created_at >= since_date
-            )
-            if processing_status is not None:
-                query = query.where(InteractionORM.processing_status == processing_status)
-            result = await session.execute(
-                query.order_by(InteractionORM.created_at.desc())
-            )
-            all_object = [obj for obj in result.scalars().all()]
-            return [self._orm_to_domain(obj) for obj in all_object]
+            query = sa.select(InteractionORM).where(InteractionORM.created_at >= cutoff_date)
+
+            # Apply additional filters
+            for field, value in filters.items():
+                query = query.filter(getattr(InteractionORM, field) == value)
+
+            # Order by created_at, newest first
+            query = query.order_by(InteractionORM.created_at.desc())
+
+            result = await session.execute(query)
+            orm_interactions = result.scalars().all()
+
+            return [self._orm_to_domain(obj) for obj in orm_interactions]
 
     async def upsert(
         self,

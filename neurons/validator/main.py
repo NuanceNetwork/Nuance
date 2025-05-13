@@ -304,7 +304,7 @@ class NuanceValidator:
                 # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
-                        since_date=cutoff_date,
+                        cutoff_date=cutoff_date,
                         processing_status=models.ProcessingStatus.ACCEPTED
                     )
                 )

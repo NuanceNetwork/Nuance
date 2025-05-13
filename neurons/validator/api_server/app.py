@@ -7,6 +7,7 @@ from typing import Annotated, Awaitable, Callable
 
 import bittensor as bt
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -47,6 +48,18 @@ app = FastAPI(
     title="Nuance Network API",
     description="API for the Nuance Network decentralized social media validation system",
     version="0.0.1",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    # Origins that should be permitted to make cross-origin requests
+    allow_origins=[
+        "http://localhost:5173",       # Local development server
+        "https://www.nuance.info",     # Production domain
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],               # Allows all methods
+    allow_headers=["*"],               # Allows all headers
 )
 
 # Register rate limiter
@@ -133,7 +146,7 @@ async def get_miner_scores(
     # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
     recent_interactions = (
         await interaction_repo.get_recent_interactions(
-            since_date=cutoff_date,
+            cutoff_date=cutoff_date,
             processing_status=models.ProcessingStatus.ACCEPTED
         )
     )
@@ -474,6 +487,94 @@ async def get_post(
     )
 
 
+@app.get("/posts/{platform_type}/recent", response_model=list[PostVerificationResponse])
+async def get_recent_posts(
+    platform_type: str,
+    cutoff_date: str,
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    skip: int = 0,
+    limit: int = 20,
+    min_interactions: int = 1,
+):
+    """
+    Get recent posts from a specific platform created after the cutoff date.
+    
+    Returns a paginated list of posts with their verification status.
+    Posts are sorted by recency.
+    
+    Parameters:
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+    - skip: Number of posts to skip (for pagination)
+    - limit: Maximum number of posts to return
+    - min_interactions: Minimum number of interactions required (default 1 to only reutnr posts with verified interactions)
+    """
+    logger.info(f"Getting recent posts for platform: {platform_type}, cutoff: {cutoff_date}, min_interactions: {min_interactions}")
+    
+    try:
+        # Parse the cutoff_date string to a datetime object
+        # Try ISO format first (with time)
+        try:
+            parsed_cutoff_date = datetime.datetime.fromisoformat(cutoff_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Then try just date format
+            parsed_cutoff_date = datetime.datetime.strptime(cutoff_date, "%Y-%m-%d")
+        
+        # Ensure the datetime is timezone-aware
+        if parsed_cutoff_date.tzinfo is None:
+            parsed_cutoff_date = parsed_cutoff_date.replace(tzinfo=datetime.timezone.utc)
+            
+        logger.debug(f"Parsed cutoff date: {parsed_cutoff_date}")
+        
+        # Get posts since the cutoff date
+        recent_posts = await post_repo.get_recent_posts(
+            cutoff_date=parsed_cutoff_date,
+            platform_type=platform_type,
+        )
+        
+        logger.debug(f"Found {len(recent_posts)} posts since {cutoff_date}")
+        
+        # Process posts and filter based on interaction count
+        result = []
+        for post in recent_posts:
+            interactions = await interaction_repo.find_many(
+                platform_type=post.platform_type,
+                post_id=post.post_id
+            )
+            
+            interaction_count = len(interactions)
+            
+            # Skip posts with fewer interactions than required
+            if interaction_count < min_interactions:
+                continue
+                
+            result.append(
+                PostVerificationResponse(
+                    platform_type=post.platform_type,
+                    post_id=post.post_id,
+                    content=post.content,
+                    topics=post.topics or [],
+                    processing_status=post.processing_status,
+                    processing_note=post.processing_note,
+                    interaction_count=interaction_count,
+                )
+            )
+        
+        # Sort by most recent and apply pagination
+        result.sort(key=lambda p: p.created_at, reverse=True)
+        paginated_result = result[skip : skip + limit]
+        
+        logger.debug(f"Returning {len(paginated_result)} posts after filtering for min {min_interactions} interactions")
+        return paginated_result
+        
+    except ValueError as e:
+        logger.error(f"Invalid date format: {cutoff_date}. Error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Please use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)"
+        )
+
+
 @app.get("/posts/{platform_type}/{post_id}/interactions", response_model=list[InteractionResponse])
 async def get_post_interactions(
     platform_type: str,
@@ -566,8 +667,80 @@ async def get_interaction(
         processing_status=interaction.processing_status,
         processing_note=interaction.processing_note,
     )
-    
 
+
+@app.get("/interactions/{platform_type}/recent", response_model=list[InteractionResponse])
+async def get_recent_interactions(
+    platform_type: str,
+    cutoff_date: str,
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    skip: int = 0,
+    limit: int = 20
+):
+    """
+    Get recent accepted interactions from a specific platform created after the cutoff date.
+    
+    Returns a paginated list of accepted interactions sorted by recency.
+    
+    Parameters:
+    - platform_type: The type of platform to get interactions from
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+    - skip: Number of interactions to skip (for pagination)
+    - limit: Maximum number of interactions to return
+    """
+    logger.info(f"Getting recent accepted interactions for platform: {platform_type}, cutoff: {cutoff_date}")
+    
+    try:
+        # Parse the cutoff_date string to a datetime object
+        # Try ISO format first (with time)
+        try:
+            parsed_cutoff = datetime.datetime.fromisoformat(cutoff_date.replace('Z', '+00:00'))
+        except ValueError:
+            # Then try just date format
+            parsed_cutoff = datetime.datetime.strptime(cutoff_date, "%Y-%m-%d")
+        
+        # Ensure the datetime is timezone-aware
+        if parsed_cutoff.tzinfo is None:
+            parsed_cutoff = parsed_cutoff.replace(tzinfo=datetime.timezone.utc)
+            
+        logger.debug(f"Parsed cutoff date: {parsed_cutoff}")
+        
+        # Get interactions since the cutoff date that are ACCEPTED
+        recent_interactions = await interaction_repo.get_recent_interactions(
+            cutoff_date=parsed_cutoff,
+            platform_type=platform_type,
+            processing_status=models.ProcessingStatus.ACCEPTED
+        )
+        
+        logger.debug(f"Found {len(recent_interactions)} accepted interactions since {cutoff_date}")
+        
+        # Sort by creation date (newest first) and apply pagination
+        recent_interactions.sort(key=lambda i: i.created_at, reverse=True)
+        paginated_interactions = recent_interactions[skip : skip + limit]
+        
+        # Convert to response objects
+        return [
+            InteractionResponse(
+                platform_type=interaction.platform_type,
+                interaction_id=interaction.interaction_id,
+                interaction_type=interaction.interaction_type,
+                post_id=interaction.post_id,
+                account_id=interaction.account_id,
+                content=interaction.content,
+                processing_status=interaction.processing_status,
+                processing_note=interaction.processing_note,
+            )
+            for interaction in paginated_interactions
+        ]
+        
+    except ValueError as e:
+        logger.error(f"Invalid date format: {cutoff_date}. Error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Please use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)"
+        )
+
+    
 @app.get(
     "/accounts/verify/{platform_type}/{account_id}",
     response_model=AccountVerificationResponse,
