@@ -1,14 +1,20 @@
 # neurons/validator/api_server.py
 import asyncio
+import datetime
+import math
+import traceback
 from typing import Annotated, Awaitable, Callable
 
+import bittensor as bt
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
+import numpy as np
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
+import nuance.constants as constants
 from nuance.database import (
     NodeRepository,
     PostRepository,
@@ -17,10 +23,13 @@ from nuance.database import (
 )
 import nuance.models as models
 from nuance.utils.logging import logger
+from nuance.utils.bittensor_utils import get_metagraph
 from nuance.settings import settings
 
 from neurons.validator.api_server.models import (
+    MinerScore,
     MinerStatsResponse,
+    MinerScoresResponse,
     PostVerificationResponse,
     InteractionResponse,
     AccountVerificationResponse
@@ -104,6 +113,141 @@ async def get_miner_stats(
         interaction_count=interaction_count
     )
 
+@app.get("/miners/scores", response_model=MinerScoresResponse)
+async def get_miner_scores(
+    node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    metagraph: Annotated[bt.Metagraph, Depends(get_metagraph)],
+):
+    """
+    Get scores for all miners.
+    """
+    logger.info("Getting scores for all miners")
+    # Get cutoff date (14 days ago)
+    cutoff_date = datetime.datetime.now(
+        tz=datetime.timezone.utc
+    ) - datetime.timedelta(days=14)
+
+    # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
+    recent_interactions = (
+        await interaction_repo.get_recent_interactions(
+            since_date=cutoff_date,
+            processing_status=models.ProcessingStatus.ACCEPTED
+        )
+    )
+
+    if not recent_interactions:
+        logger.info("No recent interactions found for scoring")
+        return MinerScoresResponse(miner_scores=[])
+
+    logger.info(
+        f"Found {len(recent_interactions)} recent interactions for scoring"
+    )
+
+    # 2. Calculate scores for all miners (keyed by hotkey)
+    node_scores: dict[str, dict[str, float]] = {} # {hotkey: {category: score}}
+
+    for interaction in recent_interactions:
+        try:
+            # Get the post being interacted with
+            post = await post_repo.get_by(
+                platform_type=interaction.platform_type,
+                post_id=interaction.post_id
+            )
+            if not post:
+                logger.warning(
+                    f"Post not found for interaction {interaction.interaction_id}"
+                )
+                continue
+            elif post.processing_status != models.ProcessingStatus.ACCEPTED:
+                logger.warning(
+                    f"Post {post.post_id} is not accepted for interaction {interaction.interaction_id}"
+                )
+                continue
+            
+            interaction.post = post
+
+            # Get the account that made the post (miner's account)
+            post_account = await account_repo.get_by_platform_id(
+                post.platform_type, post.account_id
+            )
+            if not post_account:
+                logger.warning(f"Account not found for post {post.post_id}")
+                continue
+
+            # Get the account that made the interaction
+            interaction_account = (
+                await account_repo.get_by_platform_id(
+                    interaction.platform_type, interaction.account_id
+                )
+            )
+            if not interaction_account:
+                logger.warning(
+                    f"Account not found for interaction {interaction.interaction_id}"
+                )
+                continue
+            interaction.social_account = interaction_account
+
+            # Get the node that own the account
+            node = await node_repo.get_by_hotkey_netuid(
+                post_account.node_hotkey, settings.NETUID
+            )
+            if not node:
+                logger.warning(
+                    f"Node not found for account {post_account.account_id}"
+                )
+                continue
+
+            # Get node (miner) for scoring
+            miner_hotkey = node.node_hotkey
+
+            # Calculate score for this interaction
+            interaction_scores = calculate_interaction_score(
+                interaction=interaction,
+                cutoff_date=cutoff_date,
+            )
+
+            # Add to node's score
+            if miner_hotkey not in node_scores:
+                node_scores[miner_hotkey] = {}
+            for category, score in interaction_scores.items():
+                if category not in node_scores[miner_hotkey]:
+                    node_scores[miner_hotkey][category] = 0.0
+                node_scores[miner_hotkey][category] += score
+
+        except Exception as e:
+            logger.error(
+                f"Error scoring interaction {interaction.interaction_id}: {traceback.format_exc()}"
+            )
+
+    # 3. Set weights for all nodes
+    # We create a score array for each category
+    categories_scores = {category: np.zeros(len(metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+    for hotkey, scores in node_scores.items():
+        if hotkey in metagraph.hotkeys:
+            for category, score in scores.items():
+                categories_scores[category][metagraph.hotkeys.index(hotkey)] = score
+                
+    # Normalize scores for each category
+    for category in categories_scores:
+        categories_scores[category] = np.nan_to_num(categories_scores[category], 0)
+        if np.sum(categories_scores[category]) > 0:
+            categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
+        else:
+            categories_scores[category] = np.ones(len(metagraph.hotkeys)) / len(metagraph.hotkeys)
+            
+    # Weighted sum of categories
+    scores = np.zeros(len(metagraph.hotkeys))
+    for category in categories_scores:
+        scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+    
+    miner_scores = []
+    for hotkey in metagraph.hotkeys:
+        miner_scores.append(MinerScore(node_hotkey=hotkey, score=scores[metagraph.hotkeys.index(hotkey)]))
+    
+    return MinerScoresResponse(miner_scores=miner_scores)
 
 @app.get("/miners/{node_hotkey}/accounts", response_model=list[AccountVerificationResponse])
 async def get_miner_accounts(
@@ -507,6 +651,57 @@ async def scalar_html():
         title=app.title,
         show_sidebar=True,
     )
+
+def calculate_interaction_score(
+    interaction: models.Interaction,
+    cutoff_date: datetime.datetime,
+) -> dict[str, float]:
+    """
+    Calculate score for an interaction based on type, recency, and account influence.
+
+    Args:
+        interaction: The interaction to score
+        interaction_account: The account that made the interaction
+        cutoff_date: The date beyond which interactions are not scored (14 days ago)
+
+    Returns:
+        dict[str, float]: The calculated score for each category
+    """
+    interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
+    # Skip if the interaction is too old
+    if interaction.created_at < cutoff_date:
+        return {}
+
+    type_weights = {
+        models.InteractionType.REPLY: 1.0,
+    }
+
+    base_score = type_weights.get(interaction.interaction_type, 0.5)
+
+    # Recency factor - newer interactions get higher scores
+    now = datetime.datetime.now(tz=datetime.timezone.utc)
+    age_days = (now - interaction.created_at).days
+    max_age = 14  # Max age in days
+
+    # Linear decay from 1.0 (today) to 0.1 (14 days old)
+    recency_factor = 1.0 - (0.9 * age_days / max_age)
+
+    # Account influence factor (based on followers)
+    followers = interaction.social_account.extra_data.get("followers_count", 0)
+    influence_factor = min(1.0, followers / 10000)  # Cap at 1.0
+    
+    score = base_score * recency_factor * math.log(1 + influence_factor)
+    
+    # Scores for categories / topics (all same as score above)
+    post_topics = interaction.post.topics
+    if not post_topics:
+        interaction_scores: dict[str, float] = {"else": score}
+    else:
+        interaction_scores: dict[str, float] = {
+            topic: score for topic in constants.TOPICS # TODO: change to post_topics
+        }
+    logger.debug(f"Interaction scores: {interaction_scores}")
+    return interaction_scores
 
 
 async def run_api_server(port: int, shutdown_event: asyncio.Event) -> None:
