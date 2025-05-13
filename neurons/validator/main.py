@@ -415,7 +415,6 @@ class NuanceValidator:
                 for category in categories_scores:
                     scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
                 
-                # TODO: add log this scores and normalize them before calculating the weights to add burn right way
                 scores_weights = scores.tolist()
 
                 # Burn
@@ -496,7 +495,7 @@ class NuanceValidator:
             interaction_scores: dict[str, float] = {"else": score}
         else:
             interaction_scores: dict[str, float] = {
-                topic: score for topic in constants.TOPICS # TODO: maybe need to fix this, we should use the post topics instead
+                topic: score for topic in post_topics
             }
         
         return interaction_scores
