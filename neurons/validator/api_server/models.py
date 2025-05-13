@@ -1,6 +1,11 @@
 from typing import Optional
 from pydantic import BaseModel, Field
 
+class MinerScoresResponse(BaseModel):
+    """Response model for miner scores."""
+    
+    node_hotkey: str = Field(..., description="Miner's hotkey")
+    score: float = Field(..., description="Miner's score")
 
 class MinerStatsResponse(BaseModel):
     """Response model for miner statistics."""
