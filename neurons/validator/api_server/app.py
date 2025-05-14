@@ -451,42 +451,6 @@ async def get_miner_interactions(
     ]
 
 
-@app.get("/posts/{platform_type}/{post_id}", response_model=PostVerificationResponse)
-async def get_post(
-    platform_type: str,
-    post_id: str,
-    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
-    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
-):
-    """
-    Get verification status for a specific post.
-    
-    Returns information about a post's verification status and total interactions.
-    """
-    logger.info(f"Getting post details: {platform_type}/{post_id}")
-    
-    post = await post_repo.get_by(platform_type=platform_type, post_id=post_id)
-    if not post:
-        logger.warning(f"Post not found: {platform_type}/{post_id}")
-        raise HTTPException(status_code=404, detail="Post not found")
-
-    interactions = await interaction_repo.find_many(
-        platform_type=platform_type, post_id=post_id
-    )
-    
-    logger.debug(f"Found post with {len(interactions)} interactions")
-
-    return PostVerificationResponse(
-        platform_type=post.platform_type,
-        post_id=post.post_id,
-        content=post.content,
-        topics=post.topics or [],
-        processing_status=post.processing_status,
-        processing_note=post.processing_note,
-        interaction_count=len(interactions),
-    )
-
-
 @app.get("/posts/{platform_type}/recent", response_model=list[PostVerificationResponse])
 async def get_recent_posts(
     platform_type: str,
@@ -575,6 +539,42 @@ async def get_recent_posts(
         )
 
 
+@app.get("/posts/{platform_type}/{post_id}", response_model=PostVerificationResponse)
+async def get_post(
+    platform_type: str,
+    post_id: str,
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+):
+    """
+    Get verification status for a specific post.
+    
+    Returns information about a post's verification status and total interactions.
+    """
+    logger.info(f"Getting post details: {platform_type}/{post_id}")
+    
+    post = await post_repo.get_by(platform_type=platform_type, post_id=post_id)
+    if not post:
+        logger.warning(f"Post not found: {platform_type}/{post_id}")
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    interactions = await interaction_repo.find_many(
+        platform_type=platform_type, post_id=post_id
+    )
+    
+    logger.debug(f"Found post with {len(interactions)} interactions")
+
+    return PostVerificationResponse(
+        platform_type=post.platform_type,
+        post_id=post.post_id,
+        content=post.content,
+        topics=post.topics or [],
+        processing_status=post.processing_status,
+        processing_note=post.processing_note,
+        interaction_count=len(interactions),
+    )
+
+
 @app.get("/posts/{platform_type}/{post_id}/interactions", response_model=list[InteractionResponse])
 async def get_post_interactions(
     platform_type: str,
@@ -632,41 +632,6 @@ async def get_post_interactions(
         )
     
     return result
-
-
-@app.get("/interactions/{platform_type}/{interaction_id}", response_model=InteractionResponse)
-async def get_interaction(
-    platform_type: str,
-    interaction_id: str,
-    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
-):
-    """
-    Get details for a specific interaction.
-    
-    Returns information about a specific interaction's verification status.
-    """
-    logger.info(f"Getting interaction details: {platform_type}/{interaction_id}")
-    
-    interaction = await interaction_repo.get_by(
-        platform_type=platform_type, interaction_id=interaction_id
-    )
-    
-    if not interaction:
-        logger.warning(f"Interaction not found: {platform_type}/{interaction_id}")
-        raise HTTPException(status_code=404, detail="Interaction not found")
-    
-    logger.debug(f"Found interaction: {platform_type}/{interaction_id}")
-    
-    return InteractionResponse(
-        platform_type=interaction.platform_type,
-        interaction_id=interaction.interaction_id,
-        interaction_type=interaction.interaction_type,
-        post_id=interaction.post_id,
-        account_id=interaction.account_id,
-        content=interaction.content,
-        processing_status=interaction.processing_status,
-        processing_note=interaction.processing_note,
-    )
 
 
 @app.get("/interactions/{platform_type}/recent", response_model=list[InteractionResponse])
@@ -739,6 +704,41 @@ async def get_recent_interactions(
             status_code=400,
             detail="Invalid date format. Please use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)"
         )
+
+
+@app.get("/interactions/{platform_type}/{interaction_id}", response_model=InteractionResponse)
+async def get_interaction(
+    platform_type: str,
+    interaction_id: str,
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+):
+    """
+    Get details for a specific interaction.
+    
+    Returns information about a specific interaction's verification status.
+    """
+    logger.info(f"Getting interaction details: {platform_type}/{interaction_id}")
+    
+    interaction = await interaction_repo.get_by(
+        platform_type=platform_type, interaction_id=interaction_id
+    )
+    
+    if not interaction:
+        logger.warning(f"Interaction not found: {platform_type}/{interaction_id}")
+        raise HTTPException(status_code=404, detail="Interaction not found")
+    
+    logger.debug(f"Found interaction: {platform_type}/{interaction_id}")
+    
+    return InteractionResponse(
+        platform_type=interaction.platform_type,
+        interaction_id=interaction.interaction_id,
+        interaction_type=interaction.interaction_type,
+        post_id=interaction.post_id,
+        account_id=interaction.account_id,
+        content=interaction.content,
+        processing_status=interaction.processing_status,
+        processing_note=interaction.processing_note,
+    )
 
     
 @app.get(
