@@ -7,6 +7,7 @@ from typing import Annotated, Awaitable, Callable
 
 import bittensor as bt
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -32,14 +33,14 @@ from neurons.validator.api_server.models import (
     MinerScoresResponse,
     PostVerificationResponse,
     InteractionResponse,
-    AccountVerificationResponse
+    AccountVerificationResponse,
 )
 from neurons.validator.api_server.dependencies import (
     get_node_repo,
     get_post_repo,
     get_interaction_repo,
     get_account_repo,
-    get_nuance_checker
+    get_nuance_checker,
 )
 
 
@@ -47,6 +48,18 @@ app = FastAPI(
     title="Nuance Network API",
     description="API for the Nuance Network decentralized social media validation system",
     version="0.0.1",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    # Origins that should be permitted to make cross-origin requests
+    allow_origins=[
+        "http://localhost:5173",  # Local development server
+        "https://www.nuance.info",  # Production domain
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 # Register rate limiter
@@ -66,14 +79,14 @@ async def get_miner_stats(
 ):
     """
     Get overall stats for a specific miner by hotkey.
-    
+
     This endpoint provides a summary of a miner's activity including:
     - Number of verified accounts
     - Number of posts submitted
     - Number of interactions received
     """
     logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
-    
+
     # Check if node exists
     node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
     if not node:
@@ -104,14 +117,17 @@ async def get_miner_stats(
             )
             interaction_count += len(interactions)
 
-    logger.info(f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions")
+    logger.info(
+        f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions"
+    )
 
     return MinerStatsResponse(
         node_hotkey=node_hotkey,
         account_count=account_count,
         post_count=post_count,
-        interaction_count=interaction_count
+        interaction_count=interaction_count,
     )
+
 
 @app.get("/miners/scores", response_model=MinerScoresResponse)
 async def get_miner_scores(
@@ -126,35 +142,29 @@ async def get_miner_scores(
     """
     logger.info("Getting scores for all miners")
     # Get cutoff date (14 days ago)
-    cutoff_date = datetime.datetime.now(
-        tz=datetime.timezone.utc
-    ) - datetime.timedelta(days=14)
+    cutoff_date = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+        days=14
+    )
 
     # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
-    recent_interactions = (
-        await interaction_repo.get_recent_interactions(
-            since_date=cutoff_date,
-            processing_status=models.ProcessingStatus.ACCEPTED
-        )
+    recent_interactions = await interaction_repo.get_recent_interactions(
+        cutoff_date=cutoff_date, processing_status=models.ProcessingStatus.ACCEPTED
     )
 
     if not recent_interactions:
         logger.info("No recent interactions found for scoring")
         return MinerScoresResponse(miner_scores=[])
 
-    logger.info(
-        f"Found {len(recent_interactions)} recent interactions for scoring"
-    )
+    logger.info(f"Found {len(recent_interactions)} recent interactions for scoring")
 
     # 2. Calculate scores for all miners (keyed by hotkey)
-    node_scores: dict[str, dict[str, float]] = {} # {hotkey: {category: score}}
+    node_scores: dict[str, dict[str, float]] = {}  # {hotkey: {category: score}}
 
     for interaction in recent_interactions:
         try:
             # Get the post being interacted with
             post = await post_repo.get_by(
-                platform_type=interaction.platform_type,
-                post_id=interaction.post_id
+                platform_type=interaction.platform_type, post_id=interaction.post_id
             )
             if not post:
                 logger.warning(
@@ -166,7 +176,7 @@ async def get_miner_scores(
                     f"Post {post.post_id} is not accepted for interaction {interaction.interaction_id}"
                 )
                 continue
-            
+
             interaction.post = post
 
             # Get the account that made the post (miner's account)
@@ -178,10 +188,8 @@ async def get_miner_scores(
                 continue
 
             # Get the account that made the interaction
-            interaction_account = (
-                await account_repo.get_by_platform_id(
-                    interaction.platform_type, interaction.account_id
-                )
+            interaction_account = await account_repo.get_by_platform_id(
+                interaction.platform_type, interaction.account_id
             )
             if not interaction_account:
                 logger.warning(
@@ -195,9 +203,7 @@ async def get_miner_scores(
                 post_account.node_hotkey, settings.NETUID
             )
             if not node:
-                logger.warning(
-                    f"Node not found for account {post_account.account_id}"
-                )
+                logger.warning(f"Node not found for account {post_account.account_id}")
                 continue
 
             # Get node (miner) for scoring
@@ -224,32 +230,46 @@ async def get_miner_scores(
 
     # 3. Set weights for all nodes
     # We create a score array for each category
-    categories_scores = {category: np.zeros(len(metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+    categories_scores = {
+        category: np.zeros(len(metagraph.hotkeys))
+        for category in list(constants.CATEGORIES_WEIGHTS.keys())
+    }
     for hotkey, scores in node_scores.items():
         if hotkey in metagraph.hotkeys:
             for category, score in scores.items():
                 categories_scores[category][metagraph.hotkeys.index(hotkey)] = score
-                
+
     # Normalize scores for each category
     for category in categories_scores:
         categories_scores[category] = np.nan_to_num(categories_scores[category], 0)
         if np.sum(categories_scores[category]) > 0:
-            categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
+            categories_scores[category] = categories_scores[category] / np.sum(
+                categories_scores[category]
+            )
         else:
-            categories_scores[category] = np.ones(len(metagraph.hotkeys)) / len(metagraph.hotkeys)
-            
+            categories_scores[category] = np.ones(len(metagraph.hotkeys)) / len(
+                metagraph.hotkeys
+            )
+
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
     for category in categories_scores:
         scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
-    
+
     miner_scores = []
     for hotkey in metagraph.hotkeys:
-        miner_scores.append(MinerScore(node_hotkey=hotkey, score=scores[metagraph.hotkeys.index(hotkey)]))
-    
+        miner_scores.append(
+            MinerScore(
+                node_hotkey=hotkey, score=scores[metagraph.hotkeys.index(hotkey)]
+            )
+        )
+
     return MinerScoresResponse(miner_scores=miner_scores)
 
-@app.get("/miners/{node_hotkey}/accounts", response_model=list[AccountVerificationResponse])
+
+@app.get(
+    "/miners/{node_hotkey}/accounts", response_model=list[AccountVerificationResponse]
+)
 async def get_miner_accounts(
     node_hotkey: str,
     node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
@@ -259,15 +279,17 @@ async def get_miner_accounts(
 ):
     """
     Get verified accounts associated with a specific miner.
-    
+
     Returns a paginated list of social media accounts verified and managed by the miner.
-    
+
     Parameters:
     - skip: Number of accounts to skip (for pagination)
     - limit: Maximum number of accounts to return
     """
-    logger.info(f"Getting accounts for miner: {node_hotkey}, skip: {skip}, limit: {limit}")
-    
+    logger.info(
+        f"Getting accounts for miner: {node_hotkey}, skip: {skip}, limit: {limit}"
+    )
+
     # Check if node exists
     node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
     if not node:
@@ -310,16 +332,18 @@ async def get_miner_posts(
 ):
     """
     Get posts submitted by a specific miner.
-    
+
     Returns a paginated list of posts with their verification status.
     Posts are sorted by recency.
-    
+
     Parameters:
     - skip: Number of posts to skip (for pagination)
     - limit: Maximum number of posts to return
     """
-    logger.info(f"Getting posts for miner with hotkey: {node_hotkey}, skip: {skip}, limit: {limit}")
-    
+    logger.info(
+        f"Getting posts for miner with hotkey: {node_hotkey}, skip: {skip}, limit: {limit}"
+    )
+
     # Check if node exists
     node = await node_repo.get_by(node_hotkey=node_hotkey)
     if not node:
@@ -339,7 +363,7 @@ async def get_miner_posts(
             platform_type=account.platform_type, account_id=account.account_id
         )
         all_posts.extend(posts)
-    
+
     logger.debug(f"Found {len(all_posts)} total posts for miner {node_hotkey}")
 
     # Sort by most recent and apply pagination
@@ -364,6 +388,7 @@ async def get_miner_posts(
                 processing_status=post.processing_status,
                 processing_note=post.processing_note,
                 interaction_count=len(interactions),
+                created_at=post.created_at
             )
         )
 
@@ -382,16 +407,18 @@ async def get_miner_interactions(
 ):
     """
     Get all interactions on content from a specific miner.
-    
+
     Returns a paginated list of interactions (likes, comments, shares) across all posts
     from all accounts managed by the miner.
-    
+
     Parameters:
     - skip: Number of interactions to skip (for pagination)
     - limit: Maximum number of interactions to return
     """
-    logger.info(f"Getting interactions for miner: {node_hotkey}, skip: {skip}, limit: {limit}")
-    
+    logger.info(
+        f"Getting interactions for miner: {node_hotkey}, skip: {skip}, limit: {limit}"
+    )
+
     # Check if node exists
     node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
     if not node:
@@ -408,14 +435,12 @@ async def get_miner_interactions(
     for account in accounts:
         # Get all posts for this account
         posts = await post_repo.find_many(
-            platform_type=account.platform_type,
-            account_id=account.account_id
+            platform_type=account.platform_type, account_id=account.account_id
         )
         # Get interactions for each post
         for post in posts:
             interactions = await interaction_repo.find_many(
-                platform_type=post.platform_type,
-                post_id=post.post_id
+                platform_type=post.platform_type, post_id=post.post_id
             )
             all_interactions.extend(interactions)
 
@@ -433,9 +458,113 @@ async def get_miner_interactions(
             content=interaction.content,
             processing_status=interaction.processing_status,
             processing_note=interaction.processing_note,
+            created_at=interaction.created_at
         )
         for interaction in paginated_interactions
     ]
+
+
+@app.get("/posts/{platform_type}/recent", response_model=list[PostVerificationResponse])
+async def get_recent_posts(
+    platform_type: str,
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    cutoff_date: str = None,
+    skip: int = 0,
+    limit: int = 20,
+    min_interactions: int = 1,
+):
+    """
+    Get recent posts from a specific platform created after the cutoff date.
+
+    Returns a paginated list of posts with their verification status.
+    Posts are sorted by recency.
+
+    Parameters:
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+    - skip: Number of posts to skip (for pagination)
+    - limit: Maximum number of posts to return
+    - min_interactions: Minimum number of interactions required (default 1 to only reutnr posts with verified interactions)
+    """
+    logger.info(
+        f"Getting recent posts for platform: {platform_type}, cutoff: {cutoff_date}, min_interactions: {min_interactions}"
+    )
+
+    try:
+        # If cutoff_date is not provided, use 14 days ago
+        if cutoff_date is None:
+            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+
+        # Parse the cutoff_date string to a datetime object
+        # Try ISO format first (with time)
+        try:
+            parsed_cutoff_date = datetime.datetime.fromisoformat(
+                cutoff_date.replace("Z", "+00:00")
+            )
+        except ValueError:
+            # Then try just date format
+            parsed_cutoff_date = datetime.datetime.strptime(cutoff_date, "%Y-%m-%d")
+
+        # Ensure the datetime is timezone-aware
+        if parsed_cutoff_date.tzinfo is None:
+            parsed_cutoff_date = parsed_cutoff_date.replace(
+                tzinfo=datetime.timezone.utc
+            )
+
+        logger.debug(f"Parsed cutoff date: {parsed_cutoff_date}")
+
+        # Get posts since the cutoff date
+        recent_posts = await post_repo.get_recent_posts(
+            cutoff_date=parsed_cutoff_date,
+            platform_type=platform_type,
+        )
+
+        logger.debug(f"Found {len(recent_posts)} posts since {cutoff_date}")
+
+        # Process posts and filter based on interaction count
+        result_posts: list[models.Post] = []
+        for post in recent_posts:
+            interactions = await interaction_repo.find_many(
+                platform_type=post.platform_type, post_id=post.post_id
+            )
+
+            interaction_count = len(interactions)
+
+            # Skip posts with fewer interactions than required
+            if interaction_count < min_interactions:
+                continue
+
+            result_posts.append(post)
+
+        # Sort by most recent and apply pagination
+        result_posts.sort(key=lambda p: p.created_at, reverse=True)
+
+        result = [
+            PostVerificationResponse(
+                platform_type=post.platform_type,
+                post_id=post.post_id,
+                content=post.content,
+                topics=post.topics or [],
+                processing_status=post.processing_status,
+                processing_note=post.processing_note,
+                interaction_count=interaction_count,
+                created_at=post.created_at,
+            )
+            for post in result_posts
+        ]
+        paginated_result = result[skip : skip + limit]
+
+        logger.debug(
+            f"Returning {len(paginated_result)} posts after filtering for min {min_interactions} interactions"
+        )
+        return paginated_result
+
+    except ValueError as e:
+        logger.error(f"Invalid date format: {cutoff_date}. Error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Please use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)",
+        )
 
 
 @app.get("/posts/{platform_type}/{post_id}", response_model=PostVerificationResponse)
@@ -447,11 +576,11 @@ async def get_post(
 ):
     """
     Get verification status for a specific post.
-    
+
     Returns information about a post's verification status and total interactions.
     """
     logger.info(f"Getting post details: {platform_type}/{post_id}")
-    
+
     post = await post_repo.get_by(platform_type=platform_type, post_id=post_id)
     if not post:
         logger.warning(f"Post not found: {platform_type}/{post_id}")
@@ -460,7 +589,7 @@ async def get_post(
     interactions = await interaction_repo.find_many(
         platform_type=platform_type, post_id=post_id
     )
-    
+
     logger.debug(f"Found post with {len(interactions)} interactions")
 
     return PostVerificationResponse(
@@ -471,10 +600,14 @@ async def get_post(
         processing_status=post.processing_status,
         processing_note=post.processing_note,
         interaction_count=len(interactions),
+        created_at=post.created_at
     )
 
 
-@app.get("/posts/{platform_type}/{post_id}/interactions", response_model=list[InteractionResponse])
+@app.get(
+    "/posts/{platform_type}/{post_id}/interactions",
+    response_model=list[InteractionResponse],
+)
 async def get_post_interactions(
     platform_type: str,
     post_id: str,
@@ -485,35 +618,39 @@ async def get_post_interactions(
 ):
     """
     Get interactions for a specific post.
-    
+
     Returns a paginated list of interactions for a post.
     Interactions are sorted by recency.
-    
+
     Parameters:
     - skip: Number of interactions to skip (for pagination)
     - limit: Maximum number of interactions to return
     """
-    logger.info(f"Getting interactions for post: {platform_type}/{post_id}, skip: {skip}, limit: {limit}")
-    
+    logger.info(
+        f"Getting interactions for post: {platform_type}/{post_id}, skip: {skip}, limit: {limit}"
+    )
+
     # Verify post exists
     post = await post_repo.get_by(platform_type=platform_type, post_id=post_id)
     if not post:
         logger.warning(f"Post not found: {platform_type}/{post_id}")
         raise HTTPException(status_code=404, detail="Post not found")
-    
+
     # Get all interactions for the post
     interactions = await interaction_repo.find_many(
         platform_type=platform_type, post_id=post_id
     )
-    
-    logger.debug(f"Found {len(interactions)} interactions for post {platform_type}/{post_id}")
-    
+
+    logger.debug(
+        f"Found {len(interactions)} interactions for post {platform_type}/{post_id}"
+    )
+
     # Sort by most recent and apply pagination
     interactions.sort(
         key=lambda x: x.created_at if hasattr(x, "created_at") else 0, reverse=True
     )
     paginated_interactions = interactions[skip : skip + limit]
-    
+
     # Create response objects
     result = []
     for interaction in paginated_interactions:
@@ -527,13 +664,101 @@ async def get_post_interactions(
                 content=interaction.content,
                 processing_status=interaction.processing_status,
                 processing_note=interaction.processing_note,
+                created_at=interaction.created_at, 
             )
         )
-    
+
     return result
 
 
-@app.get("/interactions/{platform_type}/{interaction_id}", response_model=InteractionResponse)
+@app.get(
+    "/interactions/{platform_type}/recent", response_model=list[InteractionResponse]
+)
+async def get_recent_interactions(
+    platform_type: str,
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    cutoff_date: str = None,
+    skip: int = 0,
+    limit: int = 20,
+):
+    """
+    Get recent accepted interactions from a specific platform created after the cutoff date.
+
+    Returns a paginated list of accepted interactions sorted by recency.
+
+    Parameters:
+    - platform_type: The type of platform to get interactions from
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to 14 days ago if not provided
+    - skip: Number of interactions to skip (for pagination)
+    - limit: Maximum number of interactions to return
+    """
+    logger.info(
+        f"Getting recent accepted interactions for platform: {platform_type}, cutoff: {cutoff_date}"
+    )
+
+    try:
+        # If cutoff_date is not provided, use 14 days ago
+        if cutoff_date is None:
+            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+
+        # Parse the cutoff_date string to a datetime object
+        # Try ISO format first (with time)
+        try:
+            parsed_cutoff = datetime.datetime.fromisoformat(
+                cutoff_date.replace("Z", "+00:00")
+            )
+        except ValueError:
+            # Then try just date format
+            parsed_cutoff = datetime.datetime.strptime(cutoff_date, "%Y-%m-%d")
+
+        # Ensure the datetime is timezone-aware
+        if parsed_cutoff.tzinfo is None:
+            parsed_cutoff = parsed_cutoff.replace(tzinfo=datetime.timezone.utc)
+
+        logger.debug(f"Parsed cutoff date: {parsed_cutoff}")
+
+        # Get interactions since the cutoff date that are ACCEPTED
+        recent_interactions = await interaction_repo.get_recent_interactions(
+            cutoff_date=parsed_cutoff,
+            platform_type=platform_type,
+            processing_status=models.ProcessingStatus.ACCEPTED,
+        )
+
+        logger.debug(
+            f"Found {len(recent_interactions)} accepted interactions since {cutoff_date}"
+        )
+
+        # Sort by creation date (newest first) and apply pagination
+        recent_interactions.sort(key=lambda i: i.created_at, reverse=True)
+        paginated_interactions = recent_interactions[skip : skip + limit]
+
+        # Convert to response objects
+        return [
+            InteractionResponse(
+                platform_type=interaction.platform_type,
+                interaction_id=interaction.interaction_id,
+                interaction_type=interaction.interaction_type,
+                post_id=interaction.post_id,
+                account_id=interaction.account_id,
+                content=interaction.content,
+                processing_status=interaction.processing_status,
+                processing_note=interaction.processing_note,
+                created_at=interaction.created_at,
+            )
+            for interaction in paginated_interactions
+        ]
+
+    except ValueError as e:
+        logger.error(f"Invalid date format: {cutoff_date}. Error: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Please use ISO format (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)",
+        )
+
+
+@app.get(
+    "/interactions/{platform_type}/{interaction_id}", response_model=InteractionResponse
+)
 async def get_interaction(
     platform_type: str,
     interaction_id: str,
@@ -541,21 +766,21 @@ async def get_interaction(
 ):
     """
     Get details for a specific interaction.
-    
+
     Returns information about a specific interaction's verification status.
     """
     logger.info(f"Getting interaction details: {platform_type}/{interaction_id}")
-    
+
     interaction = await interaction_repo.get_by(
         platform_type=platform_type, interaction_id=interaction_id
     )
-    
+
     if not interaction:
         logger.warning(f"Interaction not found: {platform_type}/{interaction_id}")
         raise HTTPException(status_code=404, detail="Interaction not found")
-    
+
     logger.debug(f"Found interaction: {platform_type}/{interaction_id}")
-    
+
     return InteractionResponse(
         platform_type=interaction.platform_type,
         interaction_id=interaction.interaction_id,
@@ -565,8 +790,9 @@ async def get_interaction(
         content=interaction.content,
         processing_status=interaction.processing_status,
         processing_note=interaction.processing_note,
+        created_at=interaction.created_at
     )
-    
+
 
 @app.get(
     "/accounts/verify/{platform_type}/{account_id}",
@@ -580,11 +806,11 @@ async def verify_account(
 ):
     """
     Check if an account is verified in the system.
-    
+
     Verifies if a social media account is registered and associated with a miner.
     """
     logger.info(f"Verifying account: {platform_type}/{account_id}")
-    
+
     account = await account_repo.get_by(
         platform_type=platform_type, account_id=account_id
     )
@@ -597,7 +823,9 @@ async def verify_account(
         )
         if node:
             is_verified = True
-            logger.debug(f"Account is verified and associated with miner {account.node_hotkey}")
+            logger.debug(
+                f"Account is verified and associated with miner {account.node_hotkey}"
+            )
 
     if not account:
         logger.warning(f"Account not found: {platform_type}/{account_id}")
@@ -652,6 +880,7 @@ async def scalar_html():
         show_sidebar=True,
     )
 
+
 def calculate_interaction_score(
     interaction: models.Interaction,
     cutoff_date: datetime.datetime,
@@ -667,7 +896,9 @@ def calculate_interaction_score(
     Returns:
         dict[str, float]: The calculated score for each category
     """
-    interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
+    interaction.created_at = interaction.created_at.replace(
+        tzinfo=datetime.timezone.utc
+    )
     # Skip if the interaction is too old
     if interaction.created_at < cutoff_date:
         return {}
@@ -689,16 +920,17 @@ def calculate_interaction_score(
     # Account influence factor (based on followers)
     followers = interaction.social_account.extra_data.get("followers_count", 0)
     influence_factor = min(1.0, followers / 10000)  # Cap at 1.0
-    
+
     score = base_score * recency_factor * math.log(1 + influence_factor)
-    
+
     # Scores for categories / topics (all same as score above)
     post_topics = interaction.post.topics
     if not post_topics:
         interaction_scores: dict[str, float] = {"else": score}
     else:
         interaction_scores: dict[str, float] = {
-            topic: score for topic in constants.TOPICS # TODO: change to post_topics
+            topic: score
+            for topic in constants.TOPICS  # TODO: change to post_topics
         }
     logger.debug(f"Interaction scores: {interaction_scores}")
     return interaction_scores

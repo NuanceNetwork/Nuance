@@ -1,4 +1,5 @@
 # database/repositories/post.py
+import datetime
 from typing import Optional
 
 import sqlalchemy as sa
@@ -8,10 +9,11 @@ from nuance.database.schema import Post as PostORM
 from nuance.models import Post, ProcessingStatus
 from nuance.database.repositories.base import BaseRepository
 
+
 class PostRepository(BaseRepository[PostORM, Post]):
     def __init__(self, session_factory):
         super().__init__(PostORM, session_factory)
-    
+
     @classmethod
     def _orm_to_domain(cls, orm_obj: PostORM) -> Post:
         return Post(
@@ -23,9 +25,9 @@ class PostRepository(BaseRepository[PostORM, Post]):
             created_at=orm_obj.created_at,
             extra_data=orm_obj.extra_data,
             processing_status=orm_obj.processing_status,
-            processing_note=orm_obj.processing_note
+            processing_note=orm_obj.processing_note,
         )
-    
+
     @classmethod
     def _domain_to_orm(cls, domain_obj: Post) -> PostORM:
         return PostORM(
@@ -37,22 +39,49 @@ class PostRepository(BaseRepository[PostORM, Post]):
             created_at=domain_obj.created_at,
             extra_data=domain_obj.extra_data,
             processing_status=domain_obj.processing_status,
-            processing_note=domain_obj.processing_note
+            processing_note=domain_obj.processing_note,
         )
-    
+
     async def get_by_platform_id(
         self, platform_type: str, post_id: str
     ) -> Optional[Post]:
         async with self.session_factory() as session:
             result = await session.execute(
                 sa.select(PostORM).where(
-                    PostORM.platform_type == platform_type,
-                    PostORM.post_id == post_id
+                    PostORM.platform_type == platform_type, PostORM.post_id == post_id
                 )
             )
             orm_post = result.scalars().first()
             return self._orm_to_domain(orm_post) if orm_post else None
-    
+
+    async def get_recent_posts(
+        self, cutoff_date: datetime.datetime, **filters
+    ) -> list[Post]:
+        """
+        Get posts created on or after the cutoff date, with optional additional filters.
+
+        Args:
+            cutoff_date: Timezone-aware datetime to filter posts (should be in UTC)
+            **filters: Additional filters to apply (e.g., platform_type, account_id)
+
+        Returns:
+            List of Post domain objects sorted by creation date (newest first)
+        """
+        async with self.session_factory() as session:
+            query = sa.select(PostORM).where(PostORM.created_at >= cutoff_date)
+
+            # Apply additional filters
+            for field, value in filters.items():
+                query = query.filter(getattr(PostORM, field) == value)
+
+            # Order by created_at, newest first
+            query = query.order_by(PostORM.created_at.desc())
+
+            result = await session.execute(query)
+            orm_posts = result.scalars().all()
+
+            return [self._orm_to_domain(post) for post in orm_posts]
+
     async def update_status(self, post_id: int, status: ProcessingStatus) -> bool:
         async with self.session_factory() as session:
             result = await session.execute(
@@ -62,7 +91,7 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 .returning(PostORM)
             )
             return result.rowcount > 0
-        
+
     async def upsert(
         self,
         entity: Post,
@@ -80,12 +109,12 @@ class PostRepository(BaseRepository[PostORM, Post]):
                 "created_at": entity.created_at,
                 "extra_data": entity.extra_data,
                 "processing_status": entity.processing_status,
-                "processing_note": entity.processing_note
+                "processing_note": entity.processing_note,
             }
-            
+
             # Define primary key fields to exclude from updates
             primary_key_fields = ["platform_type", "post_id"]
-            
+
             # Create update dictionary
             update_dict = {
                 k: v for k, v in values_dict.items() if k not in primary_key_fields
@@ -107,21 +136,21 @@ class PostRepository(BaseRepository[PostORM, Post]):
                         PostORM.platform_type == entity.platform_type,
                         PostORM.post_id == entity.post_id,
                     ),
-                    set_=update_dict
+                    set_=update_dict,
                 )
             )
-            
+
             # Execute the statement
             await session.execute(stmt)
             await session.commit()
-            
+
             # Fetch the inserted/updated record
             result = await session.execute(
                 sa.select(PostORM).where(
                     PostORM.platform_type == entity.platform_type,
-                    PostORM.post_id == entity.post_id
+                    PostORM.post_id == entity.post_id,
                 )
             )
             updated_orm_post = result.scalars().first()
-            
+
             return self._orm_to_domain(updated_orm_post)
