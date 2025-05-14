@@ -1,3 +1,4 @@
+import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
@@ -40,6 +41,7 @@ class PostVerificationResponse(BaseModel):
     processing_status: str = Field(..., description="Current processing status")
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     interaction_count: int = Field(default=0, description="Number of interactions with this post")
+    created_at: datetime.datetime = Field(..., description="Date and time the post was created")
 
 
 class InteractionResponse(BaseModel):
@@ -53,3 +55,4 @@ class InteractionResponse(BaseModel):
     content: Optional[str] = Field(None, description="Content of the interaction (if applicable)")
     processing_status: str = Field(..., description="Current processing status")
     processing_note: Optional[str] = Field(None, description="Additional processing information")
+    created_at: datetime.datetime = Field(..., description="Date and time the interaction was created")
