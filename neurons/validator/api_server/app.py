@@ -481,7 +481,8 @@ async def get_recent_posts(
     Posts are sorted by recency.
 
     Parameters:
-    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+    - platform_type: The type of platform to get interactions from
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to 14 days ago if not provided
     - skip: Number of posts to skip (for pagination)
     - limit: Maximum number of posts to return
     - min_interactions: Minimum number of interactions required (default 1 to only reutnr posts with verified interactions)
