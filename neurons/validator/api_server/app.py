@@ -388,6 +388,7 @@ async def get_miner_posts(
                 processing_status=post.processing_status,
                 processing_note=post.processing_note,
                 interaction_count=len(interactions),
+                created_at=post.created_at
             )
         )
 
@@ -457,6 +458,7 @@ async def get_miner_interactions(
             content=interaction.content,
             processing_status=interaction.processing_status,
             processing_note=interaction.processing_note,
+            created_at=interaction.created_at
         )
         for interaction in paginated_interactions
     ]
@@ -598,6 +600,7 @@ async def get_post(
         processing_status=post.processing_status,
         processing_note=post.processing_note,
         interaction_count=len(interactions),
+        created_at=post.created_at
     )
 
 
@@ -661,6 +664,7 @@ async def get_post_interactions(
                 content=interaction.content,
                 processing_status=interaction.processing_status,
                 processing_note=interaction.processing_note,
+                created_at=interaction.created_at, 
             )
         )
 
@@ -786,6 +790,7 @@ async def get_interaction(
         content=interaction.content,
         processing_status=interaction.processing_status,
         processing_note=interaction.processing_note,
+        created_at=interaction.created_at
     )
 
 
