@@ -1,6 +1,7 @@
 # neurons/validator/main.py
 import asyncio
 import datetime
+from typing import Optional
 import json
 import math
 import traceback
@@ -381,6 +382,9 @@ class NuanceValidator:
                             cutoff_date=cutoff_date,
                         )
 
+                        if interaction_scores is None:
+                            continue
+
                         # Add to node's score
                         if miner_hotkey not in node_scores:
                             node_scores[miner_hotkey] = {}
@@ -452,7 +456,7 @@ class NuanceValidator:
         self,
         interaction: models.Interaction,
         cutoff_date: datetime.datetime,
-    ) -> dict[str, float]:
+    ) -> Optional[dict[str, float]]:
         """
         Calculate score for an interaction based on type, recency, and account influence.
 
@@ -467,7 +471,7 @@ class NuanceValidator:
         interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
-            return 0.0
+            return None
 
         type_weights = {
             models.InteractionType.REPLY: 1.0,
