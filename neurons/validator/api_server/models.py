@@ -42,6 +42,8 @@ class PostVerificationResponse(BaseModel):
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     interaction_count: int = Field(default=0, description="Number of interactions with this post")
     created_at: datetime.datetime = Field(..., description="Date and time the post was created")
+    username: Optional[str] = Field(default="", description="Username of the account that made the post")
+    profile_pic_url: Optional[str] = Field(default="", description="URL of the account's profile picture")
 
 
 class InteractionResponse(BaseModel):

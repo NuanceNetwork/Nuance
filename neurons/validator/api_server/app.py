@@ -540,19 +540,35 @@ async def get_recent_posts(
         # Sort by most recent and apply pagination
         result_posts.sort(key=lambda p: p.created_at, reverse=True)
 
-        result = [
-            PostVerificationResponse(
-                platform_type=post.platform_type,
-                post_id=post.post_id,
-                content=post.content,
-                topics=post.topics or [],
-                processing_status=post.processing_status,
-                processing_note=post.processing_note,
-                interaction_count=interaction_count,
-                created_at=post.created_at,
+        result = []
+        for post in result_posts:
+            if post.platform_type == "twitter":
+                user = post.extra_data.get("user", {})
+                if user:
+                    username = user.get("username", "")
+                    profile_pic_url = user.get("profile_image_url", "")
+                else:
+                    username = ""
+                    profile_pic_url = ""
+            else:
+                username = ""
+                profile_pic_url = ""
+                
+            result.append(
+                PostVerificationResponse(
+                    platform_type=post.platform_type,
+                    post_id=post.post_id,
+                    content=post.content,
+                    topics=post.topics or [],
+                    processing_status=post.processing_status,
+                    processing_note=post.processing_note,
+                    interaction_count=interaction_count,
+                    created_at=post.created_at,
+                    username=username,
+                    profile_pic_url=profile_pic_url,
+                )
             )
-            for post in result_posts
-        ]
+
         paginated_result = result[skip : skip + limit]
 
         logger.debug(
