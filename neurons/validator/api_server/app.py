@@ -400,6 +400,7 @@ async def get_miner_posts(
                 processing_status=post.processing_status,
                 processing_note=post.processing_note,
                 interaction_count=len(interactions),
+                created_at=post.created_at
             )
         )
 
@@ -469,6 +470,7 @@ async def get_miner_interactions(
             content=interaction.content,
             processing_status=interaction.processing_status,
             processing_note=interaction.processing_note,
+            created_at=interaction.created_at
         )
         for interaction in paginated_interactions
     ]
@@ -477,9 +479,9 @@ async def get_miner_interactions(
 @app.get("/posts/{platform_type}/recent", response_model=list[PostVerificationResponse])
 async def get_recent_posts(
     platform_type: str,
-    cutoff_date: str,
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    cutoff_date: str = None,
     skip: int = 0,
     limit: int = 20,
     min_interactions: int = 1,
@@ -501,6 +503,10 @@ async def get_recent_posts(
     )
 
     try:
+        # If cutoff_date is not provided, use 14 days ago
+        if cutoff_date is None:
+            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+
         # Parse the cutoff_date string to a datetime object
         # Try ISO format first (with time)
         try:
@@ -554,6 +560,7 @@ async def get_recent_posts(
                 processing_status=post.processing_status,
                 processing_note=post.processing_note,
                 interaction_count=interaction_count,
+                created_at=post.created_at,
             )
             for post in result_posts
         ]
@@ -605,6 +612,7 @@ async def get_post(
         processing_status=post.processing_status,
         processing_note=post.processing_note,
         interaction_count=len(interactions),
+        created_at=post.created_at
     )
 
 
@@ -668,6 +676,7 @@ async def get_post_interactions(
                 content=interaction.content,
                 processing_status=interaction.processing_status,
                 processing_note=interaction.processing_note,
+                created_at=interaction.created_at, 
             )
         )
 
@@ -679,8 +688,8 @@ async def get_post_interactions(
 )
 async def get_recent_interactions(
     platform_type: str,
-    cutoff_date: str,
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    cutoff_date: str = None,
     skip: int = 0,
     limit: int = 20,
 ):
@@ -691,7 +700,7 @@ async def get_recent_interactions(
 
     Parameters:
     - platform_type: The type of platform to get interactions from
-    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ)
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to 14 days ago if not provided
     - skip: Number of interactions to skip (for pagination)
     - limit: Maximum number of interactions to return
     """
@@ -700,6 +709,10 @@ async def get_recent_interactions(
     )
 
     try:
+        # If cutoff_date is not provided, use 14 days ago
+        if cutoff_date is None:
+            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+
         # Parse the cutoff_date string to a datetime object
         # Try ISO format first (with time)
         try:
@@ -742,6 +755,7 @@ async def get_recent_interactions(
                 content=interaction.content,
                 processing_status=interaction.processing_status,
                 processing_note=interaction.processing_note,
+                created_at=interaction.created_at,
             )
             for interaction in paginated_interactions
         ]
@@ -788,6 +802,7 @@ async def get_interaction(
         content=interaction.content,
         processing_status=interaction.processing_status,
         processing_note=interaction.processing_note,
+        created_at=interaction.created_at
     )
 
 
