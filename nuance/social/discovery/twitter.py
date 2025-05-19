@@ -148,19 +148,19 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 social_account.account_username, social_account.account_id
             )
 
-            # Filter replies
+            # Filter interactions
             verified_interactions: list[models.Interaction] = []
             for interaction in all_interactions:
                 interaction_id = interaction.interaction_id
-                # 1.1 Check if the reply comes from a verified username using the CSV list using user id.
+                # 1.1 Check if the interaction comes from a verified username using the CSV list using user id.
                 verified_user_ids = await self.get_verified_users()
                 if interaction.account_id not in verified_user_ids:
                     logger.info(
-                        f"🚫 Reply {interaction_id} from unverified account with id {interaction.account_id}; skipping."
+                        f"🚫 Interaction {interaction_id} from unverified account with id {interaction.account_id}; skipping."
                     )
                     continue
 
-                # 1.2 Check if the reply comes from an account younger than 1 year.
+                # 1.2 Check if the interaction comes from an account younger than 1 year.
                 account_created_at = datetime.datetime.strptime(
                     interaction.extra_data["user"]["created_at"],
                     "%a %b %d %H:%M:%S %z %Y",
@@ -170,7 +170,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 )
                 if account_age.days < 365:
                     logger.info(
-                        f"⏳ Reply {interaction_id} from account younger than 1 year; skipping."
+                        f"⏳ Interaction {interaction_id} from account younger than 1 year; skipping."
                     )
                     continue
 

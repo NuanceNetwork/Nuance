@@ -1,5 +1,6 @@
 # nuance/social/platforms/twitter.py
 import aiohttp
+from loguru import logger
 
 from nuance.settings import settings
 from nuance.social.platforms.base import BasePlatform
@@ -95,4 +96,6 @@ class TwitterPlatform(BasePlatform):
         query_params = {"query": f"quoted_user_id:{account_id}", "sort": "Latest", "count": 100}
         session = await self._get_session()
         data = await async_http_request_with_retry(session, "GET", api_url, headers=headers, params=query_params)
+        logger.info(f"Found {len(data)} quotes for {account_id}")
+        logger.debug(f"Quotes: {data}")
         return data
