@@ -28,7 +28,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             "last_updated": None,
         }
         self._cache_lock = asyncio.Lock()
-        
+
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
         return _tweet_to_post(raw_post, social_account=raw_post.get("user"))
@@ -36,7 +36,10 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
     async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:
             raw_posts = await self.platform.get_all_posts(username)
-            return [_tweet_to_post(post, social_account=post.get("user")) for post in raw_posts]
+            return [
+                _tweet_to_post(post, social_account=post.get("user"))
+                for post in raw_posts
+            ]
         except Exception as e:
             logger.error(
                 f"❌ Error discovering new posts for {username}: {traceback.format_exc()}"
@@ -44,15 +47,33 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             return []
 
     async def discover_new_interactions(
-        self, username: str
+        self, username: str, account_id: str
     ) -> list[models.Interaction]:
         """
         Discover new interactions for a Twitter account. This method currently only discovers replies.
         """
         replies = await self.platform.get_all_replies(username)
         # Standardize the replies
-        standardized_replies = [_reply_tweet_to_interaction(reply, social_account=reply.get("user")) for reply in replies]
-        return standardized_replies
+        standardized_replies = [
+            _tweet_to_interaction(
+                reply,
+                social_account=reply.get("user"),
+                interaction_type=models.InteractionType.REPLY,
+            )
+            for reply in replies
+        ]
+
+        # Fetch quotes
+        quotes = await self.platform.get_all_quotes(account_id)
+        standardized_quotes = [
+            _tweet_to_interaction(
+                quote,
+                social_account=quote.get("user"),
+                interaction_type=models.InteractionType.QUOTE,
+            )
+            for quote in quotes
+        ]
+        return standardized_replies + standardized_quotes
 
     async def get_verified_users(self) -> set[str]:
         """
@@ -123,58 +144,66 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         """
         try:
             # Get new interactions to the account, currently only replies
-            all_replies = await self.discover_new_interactions(social_account.account_username)
+            all_interactions = await self.discover_new_interactions(
+                social_account.account_username, social_account.account_id
+            )
 
             # Filter replies
-            verified_replies: list[models.Interaction] = []
-            for reply in all_replies:
-                reply_id = reply.interaction_id
+            verified_interactions: list[models.Interaction] = []
+            for interaction in all_interactions:
+                interaction_id = interaction.interaction_id
                 # 1.1 Check if the reply comes from a verified username using the CSV list using user id.
                 verified_user_ids = await self.get_verified_users()
-                if reply.account_id not in verified_user_ids:
+                if interaction.account_id not in verified_user_ids:
                     logger.info(
-                        f"🚫 Reply {reply_id} from unverified account with id {reply.account_id}; skipping."
+                        f"🚫 Reply {interaction_id} from unverified account with id {interaction.account_id}; skipping."
                     )
                     continue
 
                 # 1.2 Check if the reply comes from an account younger than 1 year.
                 account_created_at = datetime.datetime.strptime(
-                    reply.extra_data["user"]["created_at"], "%a %b %d %H:%M:%S %z %Y"
+                    interaction.extra_data["user"]["created_at"],
+                    "%a %b %d %H:%M:%S %z %Y",
                 )
                 account_age = (
                     datetime.datetime.now(datetime.timezone.utc) - account_created_at
                 )
                 if account_age.days < 365:
                     logger.info(
-                        f"⏳ Reply {reply_id} from account younger than 1 year; skipping."
+                        f"⏳ Reply {interaction_id} from account younger than 1 year; skipping."
                     )
                     continue
-                
+
                 logger.info(
-                        f"✅ {reply_id} from verified account with id {reply.account_id} discovered"
+                    f"✅ {interaction_id} from verified account with id {interaction.account_id} discovered"
                 )
-                verified_replies.append(reply)
+                verified_interactions.append(interaction)
 
             # Get parent posts of the replies, these are considered as new posts
             all_parent_post_ids = [
-                reply.post_id for reply in all_replies if reply.post_id is not None
+                reply.post_id for reply in all_interactions if reply.post_id is not None
             ]
 
             posts = await asyncio.gather(
-                *[self.platform.get_post(post_id) for post_id in all_parent_post_ids], return_exceptions=True
+                *[self.platform.get_post(post_id) for post_id in all_parent_post_ids],
+                return_exceptions=True,
             )
-            posts = [_tweet_to_post(post, social_account=post.get("user")) for post in posts if not isinstance(post, Exception)]
-            
-            # Assign the post to the reply, filter valida replies
+            posts = [
+                _tweet_to_post(post, social_account=post.get("user"))
+                for post in posts
+                if not isinstance(post, Exception)
+            ]
+
+            # Assign the post to the reply, filter valid interactions
             posts_dict = {post.post_id: post for post in posts}
-            valid_replies = []
-            for reply in verified_replies:
-                if reply.post_id in posts_dict.keys():
+            valid_interactions = []
+            for interaction in verified_interactions:
+                if interaction.post_id in posts_dict.keys():
                     # Reply still has available parent post
-                    reply.post = posts_dict[reply.post_id]
-                    valid_replies.append(reply)
-            
-            return {"posts": posts, "interactions": valid_replies}
+                    interaction.post = posts_dict[interaction.post_id]
+                    valid_interactions.append(interaction)
+
+            return {"posts": posts, "interactions": valid_interactions}
 
         except Exception as e:
             logger.error(
@@ -188,10 +217,14 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         try:
             raw_verification_post = await self.platform.get_post(verification_post_id)
             verification_post = _tweet_to_post(raw_verification_post)
-            social_account = _twitter_user_to_social_account(raw_verification_post.get("user"), node=node)
+            social_account = _twitter_user_to_social_account(
+                raw_verification_post.get("user"), node=node
+            )
             verification_post.social_account = social_account
             # Check if username is correct
-            assert verification_post.social_account.account_username == username, f"Username mismatch: {verification_post.social_account.account_username} != {username}"
+            assert verification_post.social_account.account_username == username, (
+                f"Username mismatch: {verification_post.social_account.account_username} != {username}"
+            )
             # Check if miner 's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
             # Check if the post quotes the Nuance announcement post
@@ -234,7 +267,9 @@ def _twitter_user_to_social_account(
     )
 
 
-def _tweet_to_post(tweet: dict, social_account: models.SocialAccount | dict | None = None) -> models.Post:
+def _tweet_to_post(
+    tweet: dict, social_account: models.SocialAccount | dict | None = None
+) -> models.Post:
     """
     Convert a Twitter tweet dictionary to a Post object.
     """
@@ -253,7 +288,12 @@ def _tweet_to_post(tweet: dict, social_account: models.SocialAccount | dict | No
     )
 
 
-def _reply_tweet_to_interaction(tweet: dict, social_account: models.SocialAccount=None, post: models.Post=None) -> models.Interaction:
+def _tweet_to_interaction(
+    tweet: dict,
+    social_account: models.SocialAccount = None,
+    post: models.Post = None,
+    interaction_type: models.InteractionType = models.InteractionType.REPLY,
+) -> models.Interaction:
     """
     Convert a Twitter tweet dictionary to an Interaction object.
     """
@@ -264,9 +304,9 @@ def _reply_tweet_to_interaction(tweet: dict, social_account: models.SocialAccoun
     return models.Interaction(
         interaction_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
-        interaction_type=models.InteractionType.REPLY,
+        interaction_type=interaction_type,
         account_id=tweet.get("user", {}).get("id"),
-        post_id=tweet.get("in_reply_to_status_id"),
+        post_id=tweet.get("in_reply_to_status_id") if interaction_type == models.InteractionType.REPLY else tweet.get("quoted_status_id"),
         content=tweet.get("text"),
         created_at=datetime.datetime.strptime(
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
