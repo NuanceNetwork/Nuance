@@ -499,7 +499,7 @@ class NuanceValidator:
             interaction_scores: dict[str, float] = {"else": score}
         else:
             interaction_scores: dict[str, float] = {
-                topic: score for topic in constants.TOPICS # TODO: change to post_topics
+                topic: score for topic in post_topics
             }
         
         return interaction_scores
