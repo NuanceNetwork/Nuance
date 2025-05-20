@@ -1,5 +1,6 @@
 # nuance/social/platforms/twitter.py
 import aiohttp
+from loguru import logger
 
 from nuance.settings import settings
 from nuance.social.platforms.base import BasePlatform
@@ -81,4 +82,20 @@ class TwitterPlatform(BasePlatform):
         query_params = {"query": f"to:{username}", "sort": "Latest", "count": 100}
         session = await self._get_session()
         data = await async_http_request_with_retry(session, "GET", api_url, headers=headers, params=query_params)
+        return data
+    
+    async def get_all_quotes(self, account_id: str) -> list[dict]:
+        """
+        Retrieve all quotes for a given username using Datura API.
+        """
+        api_url = "https://apis.datura.ai/twitter"
+        headers = {
+            "Authorization": self.DATURA_API_KEY,
+            "Content-Type": "application/json",
+        }
+        query_params = {"query": f"quoted_user_id:{account_id}", "sort": "Latest", "count": 100}
+        session = await self._get_session()
+        data = await async_http_request_with_retry(session, "GET", api_url, headers=headers, params=query_params)
+        logger.info(f"Found {len(data)} quotes for {account_id}")
+        logger.debug(f"Quotes: {data}")
         return data

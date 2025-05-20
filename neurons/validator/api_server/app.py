@@ -947,7 +947,7 @@ def calculate_interaction_score(
     else:
         interaction_scores: dict[str, float] = {
             topic: score
-            for topic in constants.TOPICS  # TODO: change to post_topics
+            for topic in post_topics
         }
     logger.debug(f"Interaction scores: {interaction_scores}")
     return interaction_scores
