@@ -76,6 +76,7 @@ async def get_miner_stats(
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    only_count_accepted: bool = True,
 ):
     """
     Get overall stats for a specific miner by hotkey.
@@ -109,13 +110,24 @@ async def get_miner_stats(
         posts = await post_repo.find_many(
             platform_type=platform_type, account_id=account_id
         )
-        post_count += len(posts)
-
+        
         for post in posts:
-            interactions = await interaction_repo.find_many(
-                platform_type=platform_type, post_id=post.post_id
-            )
+            post_interaction_counts = 0
+            
+            if only_count_accepted:
+                interactions = await interaction_repo.find_many(
+                    platform_type=platform_type, post_id=post.post_id, processing_status=models.ProcessingStatus.ACCEPTED
+                )
+            else:
+                interactions = await interaction_repo.find_many(
+                    platform_type=platform_type, post_id=post.post_id
+                )
+            
+            post_interaction_counts = len(interactions)
             interaction_count += len(interactions)
+
+            if post_interaction_counts > 0:
+                post_count += 1
 
     logger.info(
         f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions"
