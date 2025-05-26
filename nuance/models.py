@@ -19,7 +19,7 @@ class ProcessingStatus(str, Enum):
 
 class InteractionType(str, Enum):
     REPLY = "reply"
-
+    QUOTE = "quote"
 
 class Commit(BaseModel):
     uid: int
