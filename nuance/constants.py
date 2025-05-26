@@ -20,4 +20,6 @@ CATEGORIES_WEIGHTS = {
     "else": 0.2
 }
 
+SCORING_WINDOW = 14 # days
+
 LOG_URL = "https://log.nuance.network/api/logs"

@@ -9,7 +9,7 @@ import traceback
 import bittensor as bt
 import numpy as np
 
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.chain import get_commitments
 from nuance.database.engine import get_db_session
 from nuance.database import (
@@ -146,7 +146,7 @@ class NuanceValidator:
                     )
 
                 # Sleep before next discovery cycle
-                await asyncio.sleep(constants.EPOCH_LENGTH)
+                await asyncio.sleep(cst.EPOCH_LENGTH)
 
             except Exception:
                 logger.error(f"Error in content discovery: {traceback.format_exc()}")
@@ -288,7 +288,7 @@ class NuanceValidator:
     async def score_aggregating(self):
         """
         Calculate scores for all nodes based on recent interactions.
-        This method periodically queries for interactions from the last 14 days,
+        This method periodically queries for interactions from the last SCORING_WINDOW days,
         scores them based on freshness and account influence, and updates node scores.
         """
         while True:
@@ -297,12 +297,12 @@ class NuanceValidator:
                 current_block = await self.subtensor.get_current_block()
                 logger.info(f"Calculating scores for block {current_block}")
 
-                # Get cutoff date (14 days ago)
+                # Get cutoff date
                 cutoff_date = datetime.datetime.now(
                     tz=datetime.timezone.utc
-                ) - datetime.timedelta(days=14)
+                ) - datetime.timedelta(days=cst.SCORING_WINDOW)
 
-                # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
+                # 1. Get all interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
                         cutoff_date=cutoff_date,
@@ -312,7 +312,7 @@ class NuanceValidator:
 
                 if not recent_interactions:
                     logger.info("No recent interactions found for scoring")
-                    await asyncio.sleep(constants.EPOCH_LENGTH)
+                    await asyncio.sleep(cst.EPOCH_LENGTH)
                     continue
 
                 logger.info(
@@ -400,7 +400,7 @@ class NuanceValidator:
 
                 # 3. Set weights for all nodes
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(cst.CATEGORIES_WEIGHTS.keys())}
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
@@ -417,7 +417,7 @@ class NuanceValidator:
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+                    scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
                 
                 scores_weights = scores.tolist()
 
@@ -446,7 +446,7 @@ class NuanceValidator:
                 logger.info(f"✅ Updated weights on block {current_block}.")
 
                 # Wait before next scoring cycle
-                await asyncio.sleep(constants.EPOCH_LENGTH)
+                await asyncio.sleep(cst.EPOCH_LENGTH)
 
             except Exception as e:
                 logger.error(f"Error in score aggregation: {traceback.format_exc()}")
@@ -463,7 +463,7 @@ class NuanceValidator:
         Args:
             interaction: The interaction to score
             interaction_account: The account that made the interaction
-            cutoff_date: The date beyond which interactions are not scored (14 days ago)
+            cutoff_date: The date beyond which interactions are not scored
 
         Returns:
             dict[str, float]: The calculated score for each category
@@ -482,9 +482,9 @@ class NuanceValidator:
         # Recency factor - newer interactions get higher scores
         now = datetime.datetime.now(tz=datetime.timezone.utc)
         age_days = (now - interaction.created_at).days
-        max_age = 14  # Max age in days
+        max_age = cst.SCORING_WINDOW  # Max age in days
 
-        # Linear decay from 1.0 (today) to 0.1 (14 days old)
+        # Linear decay from 1.0 (today) to 0.1
         recency_factor = 1.0 - (0.9 * age_days / max_age)
 
         # Account influence factor (based on followers)

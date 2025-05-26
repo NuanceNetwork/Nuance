@@ -15,7 +15,7 @@ from slowapi.errors import RateLimitExceeded
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.database import (
     NodeRepository,
     PostRepository,
@@ -244,7 +244,7 @@ async def get_miner_scores(
     # We create a score array for each category
     categories_scores = {
         category: np.zeros(len(metagraph.hotkeys))
-        for category in list(constants.CATEGORIES_WEIGHTS.keys())
+        for category in list(cst.CATEGORIES_WEIGHTS.keys())
     }
     for hotkey, scores in node_scores.items():
         if hotkey in metagraph.hotkeys:
@@ -266,7 +266,7 @@ async def get_miner_scores(
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
     for category in categories_scores:
-        scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+        scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
 
     miner_scores = []
     for hotkey in metagraph.hotkeys:

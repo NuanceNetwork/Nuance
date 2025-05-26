@@ -5,7 +5,7 @@ import traceback
 
 import aiohttp
 
-import nuance.constants as constants
+import nuance.constants as cst
 import nuance.models as models
 from nuance.utils.logging import logger
 from nuance.utils.networking import async_http_request_with_retry
@@ -33,7 +33,7 @@ class TopicTagger(Processor):
         if (
             self._topic_prompts_cache["last_updated"] is None
             or current_time - self._topic_prompts_cache["last_updated"]
-            > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+            > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
         ):
             # Only acquire the lock if update might be needed
             async with self._topic_prompts_lock:
@@ -41,14 +41,14 @@ class TopicTagger(Processor):
                 if (
                     self._topic_prompts_cache["last_updated"] is None
                     or current_time - self._topic_prompts_cache["last_updated"]
-                    > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+                    > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
                 ):
                     # Update the cache if it's older than the update interval
                     try:
                         topic_relevance_prompt_urls = {}
-                        for topic in constants.TOPICS:
+                        for topic in cst.TOPICS:
                             topic_relevance_prompt_urls[topic] = (
-                                constants.NUANCE_CONSTITUTION_STORE_URL
+                                cst.NUANCE_CONSTITUTION_STORE_URL
                                 + f"topic_relevance_prompts/{topic}_prompt.txt"
                             )
 
@@ -59,13 +59,13 @@ class TopicTagger(Processor):
                                     async_http_request_with_retry(
                                         session, "GET", topic_relevance_prompt_urls[topic]
                                     )
-                                    for topic in constants.TOPICS
+                                    for topic in cst.TOPICS
                                 ]
                             )
                             
                         # Map topics to their prompts
                         topic_prompts = {
-                            topic: data for topic, data in zip(constants.TOPICS, topic_relevance_prompt_data)
+                            topic: data for topic, data in zip(cst.TOPICS, topic_relevance_prompt_data)
                         }
                             
                         # Store only the topic prompts in cache
@@ -99,7 +99,7 @@ class TopicTagger(Processor):
             identified_topics = []
             
             # Check each topic
-            for topic in constants.TOPICS:
+            for topic in cst.TOPICS:
                 # Skip if we don't have a prompt for this topic
                 if topic not in topic_prompts:
                     logger.warning(f"⚠️ No prompt available for topic '{topic}'")
