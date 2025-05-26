@@ -17,7 +17,7 @@ TOPICS = [
 CATEGORIES_WEIGHTS = {
     "bittensor": 0.4,
     "nuance_subnet": 0.4,
-    "else": 0.2
+    "other": 0.2
 }
 
 SCORING_WINDOW = 14 # days

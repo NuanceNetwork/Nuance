@@ -955,7 +955,7 @@ def calculate_interaction_score(
     # Scores for categories / topics (all same as score above)
     post_topics = interaction.post.topics
     if not post_topics:
-        interaction_scores: dict[str, float] = {"else": score}
+        interaction_scores: dict[str, float] = {"other": score}
     else:
         interaction_scores: dict[str, float] = {
             topic: score
