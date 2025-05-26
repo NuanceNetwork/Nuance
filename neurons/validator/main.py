@@ -321,7 +321,13 @@ class NuanceValidator:
 
                 # 2. Calculate scores for all miners (keyed by hotkey)
                 node_scores: dict[str, dict[str, float]] = {} # {hotkey: {category: score}}
+                interaction_count_by_account: dict[str, int] = {} # {account_id: count}
 
+                # 2.1 Count interactions by account
+                for interaction in recent_interactions:
+                    interaction_count_by_account[interaction.account_id] = interaction_count_by_account.get(interaction.account_id, 0) + 1
+
+                # 2.2 Calculate scores for all miners
                 for interaction in recent_interactions:
                     try:
                         # Get the post being interacted with
@@ -380,6 +386,7 @@ class NuanceValidator:
                         interaction_scores = self._calculate_interaction_score(
                             interaction=interaction,
                             cutoff_date=cutoff_date,
+                            interaction_base_score=2.0 / interaction_count_by_account[interaction.account_id],
                         )
 
                         if interaction_scores is None:
@@ -456,6 +463,7 @@ class NuanceValidator:
         self,
         interaction: models.Interaction,
         cutoff_date: datetime.datetime,
+        interaction_base_score: float = 1.0,
     ) -> Optional[dict[str, float]]:
         """
         Calculate score for an interaction based on type, recency, and account influence.
@@ -468,6 +476,8 @@ class NuanceValidator:
         Returns:
             dict[str, float]: The calculated score for each category
         """
+        logger.debug(f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} having account {interaction.account_id}")
+
         interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
@@ -477,7 +487,7 @@ class NuanceValidator:
             models.InteractionType.REPLY: 1.0,
         }
 
-        base_score = type_weights.get(interaction.interaction_type, 0.5)
+        base_score = type_weights.get(interaction.interaction_type, 0.5) * interaction_base_score
 
         # Recency factor - newer interactions get higher scores
         now = datetime.datetime.now(tz=datetime.timezone.utc)
