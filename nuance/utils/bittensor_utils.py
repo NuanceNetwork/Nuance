@@ -55,8 +55,21 @@ class BittensorObjectsManager:
     async def _periodic_update_metagraph(self):
         while True:
             await asyncio.sleep(cst.EPOCH_LENGTH / 4)
-            await self._metagraph.sync()
-            logger.info("🔍 Metagraph updated")
+            
+            # Try up to 3 times
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    await self._metagraph.sync()
+                    logger.info("🔍 Metagraph updated")
+                    break  # Success, exit retry loop
+                except Exception as e:
+                    if attempt < max_retries - 1:  # Not the last attempt
+                        logger.warning(f"⚠️ Metagraph update failed (attempt {attempt + 1}/{max_retries}): {e}")
+                        # Optional: add a small delay between retries
+                        await asyncio.sleep(1)
+                    else:  # Last attempt failed
+                        logger.exception("❌ Failed to update metagraph after 3 attempts")
             
 bittensor_objects_manager = BittensorObjectsManager()
 
