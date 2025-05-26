@@ -476,7 +476,7 @@ class NuanceValidator:
         Returns:
             dict[str, float]: The calculated score for each category
         """
-        logger.debug(f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score}")
+        logger.debug(f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} having account {interaction.account_id}")
         interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
