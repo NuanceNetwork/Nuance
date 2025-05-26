@@ -8,7 +8,7 @@ import sys
 import requests
 from loguru import logger
 
-import nuance.constants as constants
+import nuance.constants as cst
 
 # Remove default loguru handler
 logger.remove()
@@ -60,7 +60,7 @@ class LoguruHTTPHandler(logging.Handler):
 # Create the queue and configure handlers
 log_queue = queue.Queue(-1)  # Unlimited queue size
 http_handler = LoguruHTTPHandler(
-    url=constants.LOG_URL,
+    url=cst.LOG_URL,
     headers={"Authorization": "Bearer YOUR_TOKEN"}
 )
 

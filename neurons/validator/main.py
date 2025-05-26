@@ -9,7 +9,7 @@ import traceback
 import bittensor as bt
 import numpy as np
 
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.chain import get_commitments
 from nuance.database.engine import get_db_session
 from nuance.database import (
@@ -146,7 +146,7 @@ class NuanceValidator:
                     )
 
                 # Sleep before next discovery cycle
-                await asyncio.sleep(constants.EPOCH_LENGTH)
+                await asyncio.sleep(cst.EPOCH_LENGTH)
 
             except Exception:
                 logger.error(f"Error in content discovery: {traceback.format_exc()}")
@@ -312,7 +312,7 @@ class NuanceValidator:
 
                 if not recent_interactions:
                     logger.info("No recent interactions found for scoring")
-                    await asyncio.sleep(constants.EPOCH_LENGTH)
+                    await asyncio.sleep(cst.EPOCH_LENGTH)
                     continue
 
                 logger.info(
@@ -407,7 +407,7 @@ class NuanceValidator:
 
                 # 3. Set weights for all nodes
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(cst.CATEGORIES_WEIGHTS.keys())}
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
@@ -424,7 +424,7 @@ class NuanceValidator:
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+                    scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
                 
                 scores_weights = scores.tolist()
 
@@ -453,7 +453,7 @@ class NuanceValidator:
                 logger.info(f"✅ Updated weights on block {current_block}.")
 
                 # Wait before next scoring cycle
-                await asyncio.sleep(constants.EPOCH_LENGTH)
+                await asyncio.sleep(cst.EPOCH_LENGTH)
 
             except Exception as e:
                 logger.error(f"Error in score aggregation: {traceback.format_exc()}")

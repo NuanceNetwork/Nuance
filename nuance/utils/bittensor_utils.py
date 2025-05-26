@@ -4,7 +4,7 @@ from typing import Callable, Awaitable
 
 import bittensor as bt
 
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.utils.logging import logger
 from nuance.settings import settings
 
@@ -54,7 +54,7 @@ class BittensorObjectsManager:
     
     async def _periodic_update_metagraph(self):
         while True:
-            await asyncio.sleep(constants.EPOCH_LENGTH / 4)
+            await asyncio.sleep(cst.EPOCH_LENGTH / 4)
             await self._metagraph.sync()
             logger.info("🔍 Metagraph updated")
             

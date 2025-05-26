@@ -5,7 +5,7 @@ import traceback
 
 import aiohttp
 
-import nuance.constants as constants
+import nuance.constants as cst
 import nuance.models as models
 from nuance.utils.logging import logger
 from nuance.utils.networking import async_http_request_with_retry
@@ -32,7 +32,7 @@ class NuanceChecker(Processor):
         if (
             self._nuance_prompt_cache["last_updated"] is None
             or current_time - self._nuance_prompt_cache["last_updated"]
-            > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+            > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
         ):
             # Only acquire the lock if update might be needed
             async with self._nuance_prompt_lock:
@@ -40,12 +40,12 @@ class NuanceChecker(Processor):
                 if (
                     self._nuance_prompt_cache["last_updated"] is None
                     or current_time - self._nuance_prompt_cache["last_updated"]
-                    > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+                    > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
                 ):
                     # Update the cache if it's older than the update interval
                     try:
                         post_evaluation_prompt_url = (
-                            constants.NUANCE_CONSTITUTION_STORE_URL + "post_evaluation_prompt.txt"
+                            cst.NUANCE_CONSTITUTION_STORE_URL + "post_evaluation_prompt.txt"
                         )
 
                         async with aiohttp.ClientSession() as session:
