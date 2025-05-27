@@ -180,7 +180,7 @@ class ScoreCalculator:
                 miner_hotkey = node.node_hotkey
 
                 # Calculate score for this interaction
-                interaction_scores = self.calculate_interaction_score(
+                interaction_scores = await self.calculate_interaction_score(
                     interaction=interaction,
                     cutoff_date=cutoff_date,
                     interaction_base_score=2.0
