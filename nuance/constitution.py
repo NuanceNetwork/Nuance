@@ -70,7 +70,8 @@ class ConstitutionStore:
     def _build_api_url(self, path: str) -> str:
         """Build API URL with branch reference"""
         return f"{self.api_base}/{path}?ref={cst.NUANCE_CONSTITUTION_BRANCH}"
-
+      
+  
     def _should_update_cache(self, cache_key: str) -> bool:
         """Check if cache needs updating"""
         cache = self._cache[cache_key]
