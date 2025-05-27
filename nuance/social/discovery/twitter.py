@@ -2,18 +2,20 @@
 import asyncio
 import csv
 import datetime
+import json
 import time
 from typing import Optional
 import traceback
 
 import aiohttp
 
-import nuance.constants as constants
+import nuance.constants as cst
 import nuance.models as models
 from nuance.utils.logging import logger
 from nuance.utils.networking import async_http_request_with_retry
 from nuance.social.discovery.base import BaseDiscoveryStrategy
 from nuance.social.platforms.twitter import TwitterPlatform
+from nuance.constitution import constitution_store
 
 
 class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
@@ -23,11 +25,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
 
         super().__init__(platform)
 
-        self._verified_users_cache: dict[str, bool] = {
-            "verified_user_ids": set(),
-            "last_updated": None,
-        }
-        self._cache_lock = asyncio.Lock()
+        # self._verified_users_cache: dict[str, Any] = {
+        #     "verified_user_ids": set(),
+        #     "last_updated": None,
+        # }
+        # self._cache_lock = asyncio.Lock()
 
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
@@ -75,60 +77,95 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
         ]
         return standardized_replies + standardized_quotes
 
-    async def get_verified_users(self) -> set[str]:
-        """
-        Get a set of verified Twitter user IDs.
-        Maintains a cache that refreshes periodically.
+    # async def get_verified_users(self) -> set[str]:
+    #     """
+    #     Get a set of verified Twitter user IDs.
+    #     Maintains a cache that refreshes periodically.
 
-        Returns:
-            Set of verified user IDs
-        """
-        current_time = time.time()
+    #     Returns:
+    #         Set of verified user IDs
+    #     """
+    #     current_time = time.time()
 
-        # Check if update is needed without acquiring the lock
-        if (
-            self._verified_users_cache["last_updated"] is None
-            or current_time - self._verified_users_cache["last_updated"]
-            > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
-        ):
-            # Only acquire the lock if update might be needed
-            async with self._cache_lock:
-                # Re-check after acquiring the lock (another task might have updated meanwhile)
-                if (
-                    self._verified_users_cache["last_updated"] is None
-                    or current_time - self._verified_users_cache["last_updated"]
-                    > constants.NUANCE_CONSTITUTION_UPDATE_INTERVAL
-                ):
-                    try:
-                        twitter_verified_users_url = (
-                            constants.NUANCE_CONSTITUTION_STORE_URL
-                            + "/verified_users/twitter_verified_users.csv"
-                        )
+    #     # Check if update is needed without acquiring the lock
+    #     if (
+    #         self._verified_users_cache["last_updated"] is None
+    #         or current_time - self._verified_users_cache["last_updated"]
+    #         > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+    #     ):
+    #         # Only acquire the lock if update might be needed
+    #         async with self._cache_lock:
+    #             # Re-check after acquiring the lock (another task might have updated meanwhile)
+    #             if (
+    #                 self._verified_users_cache["last_updated"] is None
+    #                 or current_time - self._verified_users_cache["last_updated"]
+    #                 > cst.NUANCE_CONSTITUTION_UPDATE_INTERVAL
+    #             ):
+    #                 try:
+    #                     # Use github API to list all verified users files on store
+    #                     repo_path = cst.NUANCE_CONSTITUTION_STORE_URL.replace(
+    #                         "https://github.com/", ""
+    #                     )
+    #                     api_url = f"https://api.github.com/repos/{repo_path}/contents/verified_users/twitter"
 
-                        async with aiohttp.ClientSession() as session:
-                            twitter_verified_users_data = (
-                                await async_http_request_with_retry(
-                                    session, "GET", twitter_verified_users_url
-                                )
-                            )
+    #                     async with aiohttp.ClientSession() as session:
+    #                         # First get list of all CSV files in the directory
+    #                         api_response = await async_http_request_with_retry(
+    #                             session, "GET", api_url
+    #                         )
+    #                         verified_users_files: list[dict] = api_response
 
-                        # Process the CSV data
-                        lines = twitter_verified_users_data.splitlines()
-                        reader = csv.DictReader(lines)
-                        self._verified_users_cache["verified_user_ids"] = {
-                            row["id"] for row in reader if "id" in row
-                        }
+    #                         all_user_ids = set()
 
-                        logger.debug(
-                            f"✅ Fetched verified Twitter users: {str(self._verified_users_cache['verified_user_ids'])[:100]} ..."
-                        )
-                        self._verified_users_cache["last_updated"] = current_time
-                    except Exception as e:
-                        logger.error(
-                            f"❌ Error fetching verified Twitter users: {traceback.format_exc()}"
-                        )
+    #                         # Process each CSV file
+    #                         for verified_users_file in verified_users_files:
+    #                             if not (
+    #                                 isinstance(verified_users_file.get("name"), str)
+    #                                 and verified_users_file.get("name").endswith(".csv")
+    #                                 and isinstance(
+    #                                     verified_users_file.get("download_url"), str
+    #                                 )
+    #                             ):
+    #                                 continue
 
-        return self._verified_users_cache["verified_user_ids"]
+    #                             verified_users_file_url = verified_users_file.get("download_url")
+    #                             try:
+    #                                 csv_data = await async_http_request_with_retry(
+    #                                     session, "GET", verified_users_file_url
+    #                                 )
+    #                                 # Process the CSV data
+    #                                 lines = csv_data.splitlines()
+    #                                 reader = csv.DictReader(lines)
+    #                                 file_user_ids = {
+    #                                     row["id"] for row in reader if "id" in row
+    #                                 }
+
+    #                                 all_user_ids.update(file_user_ids)
+                                    
+    #                                 logger.debug(
+    #                                     f"✅ Processed {verified_users_file["name"]}, added {len(file_user_ids)} users"
+    #                                 )
+    #                             except Exception as e:
+    #                                 logger.error(
+    #                                     f"❌ Error processing {verified_users_file["name"]}: {str(e)}"
+    #                                 )
+    #                                 continue
+
+    #                         # Update cache
+    #                         self._verified_users_cache["verified_user_ids"] = all_user_ids
+    #                         self._verified_users_cache["last_updated"] = current_time
+
+    #                         logger.info(
+    #                             f"✅ Fetched verified Twitter users from {len(verified_users_files)} files. "
+    #                             f"Total unique users: {len(all_user_ids)}"
+    #                         )
+
+    #                 except Exception as e:
+    #                     logger.error(
+    #                         f"❌ Error fetching verified Twitter users: {traceback.format_exc()}"
+    #                     )
+
+    #     return self._verified_users_cache["verified_user_ids"]
 
     async def discover_new_contents(
         self, social_account: models.SocialAccount
@@ -153,7 +190,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             for interaction in all_interactions:
                 interaction_id = interaction.interaction_id
                 # 1.1 Check if the interaction comes from a verified username using the CSV list using user id.
-                verified_user_ids = await self.get_verified_users()
+                verified_user_ids = await constitution_store.get_verified_user_ids(models.PlatformType.TWITTER)
                 if interaction.account_id not in verified_user_ids:
                     logger.info(
                         f"🚫 Interaction {interaction_id} from unverified account with id {interaction.account_id}; skipping."
@@ -231,7 +268,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             assert verification_post.extra_data["is_quote_tweet"]
             assert (
                 verification_post.extra_data["quoted_status_id"]
-                == constants.NUANCE_ANNOUNCEMENT_POST_ID
+                == cst.NUANCE_ANNOUNCEMENT_POST_ID
             )
             return verification_post.social_account, None
         except Exception as e:
@@ -306,7 +343,9 @@ def _tweet_to_interaction(
         platform_type=models.PlatformType.TWITTER,
         interaction_type=interaction_type,
         account_id=tweet.get("user", {}).get("id"),
-        post_id=tweet.get("in_reply_to_status_id") if interaction_type == models.InteractionType.REPLY else tweet.get("quoted_status_id"),
+        post_id=tweet.get("in_reply_to_status_id")
+        if interaction_type == models.InteractionType.REPLY
+        else tweet.get("quoted_status_id"),
         content=tweet.get("text"),
         created_at=datetime.datetime.strptime(
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
