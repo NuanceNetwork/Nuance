@@ -371,12 +371,12 @@ class NuanceValidator:
 
                 logger.info(f"Weights: {combined_weights}")
                 # 4. Update metagraph with new weights
-                await self.subtensor.set_weights(
-                    wallet=self.wallet,
-                    netuid=settings.NETUID,
-                    uids=list(range(len(combined_weights))),
-                    weights=combined_weights,
-                )
+                # await self.subtensor.set_weights(
+                #     wallet=self.wallet,
+                #     netuid=settings.NETUID,
+                #     uids=list(range(len(combined_weights))),
+                #     weights=combined_weights,
+                # )
                 logger.info(f"✅ Updated weights on block {current_block}.")
 
                 # Wait before next scoring cycle
