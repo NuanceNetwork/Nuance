@@ -48,7 +48,7 @@ async def get_commitments(
                 username=username,
                 verification_post_id=verification_post_id,
             )
-            logger.debug(f"🔍 Found commitment for hotkey {hotkey}.")
+            logger.debug(f"🔍 Found commitment for hotkey {hotkey} decoded_commit: {decoded_commit}.")
     return result
 
 

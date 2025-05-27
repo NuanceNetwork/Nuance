@@ -42,7 +42,7 @@ class ScoreCalculator:
             Dict[str, float]: The calculated score for each category, or None if too old
         """
         logger.debug(
-            f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} having account {interaction.account_id}"
+            f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} from account {interaction.account_id}"
         )
 
         interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
