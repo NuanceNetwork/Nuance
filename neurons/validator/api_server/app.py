@@ -15,7 +15,7 @@ from slowapi.errors import RateLimitExceeded
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.database import (
     NodeRepository,
     PostRepository,
@@ -76,6 +76,7 @@ async def get_miner_stats(
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    only_count_accepted: bool = True,
 ):
     """
     Get overall stats for a specific miner by hotkey.
@@ -109,13 +110,24 @@ async def get_miner_stats(
         posts = await post_repo.find_many(
             platform_type=platform_type, account_id=account_id
         )
-        post_count += len(posts)
-
+        
         for post in posts:
-            interactions = await interaction_repo.find_many(
-                platform_type=platform_type, post_id=post.post_id
-            )
+            post_interaction_counts = 0
+            
+            if only_count_accepted:
+                interactions = await interaction_repo.find_many(
+                    platform_type=platform_type, post_id=post.post_id, processing_status=models.ProcessingStatus.ACCEPTED
+                )
+            else:
+                interactions = await interaction_repo.find_many(
+                    platform_type=platform_type, post_id=post.post_id
+                )
+            
+            post_interaction_counts = len(interactions)
             interaction_count += len(interactions)
+
+            if post_interaction_counts > 0:
+                post_count += 1
 
     logger.info(
         f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions"
@@ -232,7 +244,7 @@ async def get_miner_scores(
     # We create a score array for each category
     categories_scores = {
         category: np.zeros(len(metagraph.hotkeys))
-        for category in list(constants.CATEGORIES_WEIGHTS.keys())
+        for category in list(cst.CATEGORIES_WEIGHTS.keys())
     }
     for hotkey, scores in node_scores.items():
         if hotkey in metagraph.hotkeys:
@@ -254,7 +266,7 @@ async def get_miner_scores(
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
     for category in categories_scores:
-        scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+        scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
 
     miner_scores = []
     for hotkey in metagraph.hotkeys:
@@ -943,7 +955,7 @@ def calculate_interaction_score(
     # Scores for categories / topics (all same as score above)
     post_topics = interaction.post.topics
     if not post_topics:
-        interaction_scores: dict[str, float] = {"else": score}
+        interaction_scores: dict[str, float] = {"other": score}
     else:
         interaction_scores: dict[str, float] = {
             topic: score

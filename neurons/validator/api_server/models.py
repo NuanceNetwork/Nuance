@@ -2,6 +2,9 @@ import datetime
 from typing import Optional
 from pydantic import BaseModel, Field
 
+from nuance.models import ProcessingStatus
+
+
 class MinerScore(BaseModel):
     """Model for a miner's score."""
     node_hotkey: str = Field(..., description="Miner's hotkey")
@@ -55,6 +58,6 @@ class InteractionResponse(BaseModel):
     post_id: str = Field(..., description="ID of the parent post")
     account_id: str = Field(..., description="ID of the account that made this interaction")
     content: Optional[str] = Field(None, description="Content of the interaction (if applicable)")
-    processing_status: str = Field(..., description="Current processing status")
+    processing_status: ProcessingStatus = Field(..., description="Current processing status")
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     created_at: datetime.datetime = Field(..., description="Date and time the interaction was created")

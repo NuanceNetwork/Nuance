@@ -6,6 +6,9 @@ hide:
 
 # Miner Setup
 
+## NEW SETUP INSTRUCTION
+Please check our [**example notebook**](/examples/miner_signup.ipynb) for full interactive guide on how to setup your miner on Nuance. 
+
 ## Setup Instructions
 To set up a miner node on the Nuance Subnet, follow these steps:
 

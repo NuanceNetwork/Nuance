@@ -12,7 +12,7 @@ from nuance.database import (
 )
 from nuance.database.engine import get_db_session
 import nuance.models as models
-import nuance.constants as constants
+import nuance.constants as cst
 from nuance.settings import settings
 import numpy as np
 import math
@@ -83,7 +83,7 @@ class Test:
 
                 if not recent_interactions:
                     logger.info("No recent interactions found for scoring")
-                    await asyncio.sleep(constants.EPOCH_LENGTH)
+                    await asyncio.sleep(cst.EPOCH_LENGTH)
                     continue
 
                 logger.info(
@@ -178,7 +178,7 @@ class Test:
 
                 # 3. Set weights for all nodes
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constants.CATEGORIES_WEIGHTS.keys())}
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(cst.CATEGORIES_WEIGHTS.keys())}
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
@@ -195,7 +195,7 @@ class Test:
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * constants.CATEGORIES_WEIGHTS[category]
+                    scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
                 
                 scores_weights = scores.tolist()
 
@@ -224,7 +224,7 @@ class Test:
                 logger.info(f"✅ Updated weights on block {current_block}.")
 
                 # Wait before next scoring cycle
-                await asyncio.sleep(constants.EPOCH_LENGTH)
+                await asyncio.sleep(cst.EPOCH_LENGTH)
 
             except Exception as e:
                 logger.error(f"Error in score aggregation: {traceback.format_exc()}")
@@ -277,7 +277,7 @@ class Test:
         # Scores for categories / topics (all same as score above)
         post_topics = interaction.post.topics
         if not post_topics:
-            interaction_scores: dict[str, float] = {"else": score}
+            interaction_scores: dict[str, float] = {"other": score}
         else:
             interaction_scores: dict[str, float] = {
                 topic: score for topic in post_topics
