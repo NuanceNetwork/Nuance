@@ -54,7 +54,7 @@ class ScoreCalculator:
         # Base type weights
         type_weights = {
             models.InteractionType.REPLY: 1.0,
-            models.InteractionType.QUOTE: 1.0,
+            models.InteractionType.QUOTE: 3.0,
         }
 
         base_score = type_weights.get(interaction.interaction_type, 0.5) * interaction_base_score
@@ -85,9 +85,6 @@ class ScoreCalculator:
                 category = "nuance_subnet"
             elif topic == "bittensor": 
                 category = "bittensor"
-                # Special handling: quotes get 3x multiplier for bittensor category
-                if interaction.interaction_type == models.InteractionType.QUOTE:
-                    topic_score *= 3.0
             else:
                 category = "other"
             

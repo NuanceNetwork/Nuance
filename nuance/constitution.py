@@ -41,7 +41,7 @@ class ConstitutionStore:
 
         # Build base URLs
         self.api_base = f"https://api.github.com/repos/{self.repo_path}/contents"
-        self.raw_base = f"https://raw.githubusercontent.com/{self.repo_path}/main"
+        self.raw_base = f"https://raw.githubusercontent.com/{self.repo_path}/{cst.NUANCE_CONSTITUTION_BRANCH}"
 
         # Cache structure
         self._cache = {
@@ -67,6 +67,11 @@ class ConstitutionStore:
             "verified_users": asyncio.Lock(),
         }
 
+    def _build_api_url(self, path: str) -> str:
+        """Build API URL with branch reference"""
+        return f"{self.api_base}/{path}?ref={cst.NUANCE_CONSTITUTION_BRANCH}"
+      
+  
     def _should_update_cache(self, cache_key: str) -> bool:
         """Check if cache needs updating"""
         cache = self._cache[cache_key]
@@ -118,7 +123,7 @@ class ConstitutionStore:
 
             try:
                 # Get list of files in topic_relevance_prompts directory
-                api_url = f"{self.api_base}/topic_relevance_prompts"
+                api_url = self._build_api_url("topic_relevance_prompts")
 
                 async with aiohttp.ClientSession() as session:
                     # Get directory listing
@@ -264,7 +269,7 @@ class ConstitutionStore:
         self, platform: str
     ) -> list[dict[str, str]]:
         """Fetch complete verified user data for a specific platform from CSV files"""
-        api_url = f"{self.api_base}/verified_users/{platform}"
+        api_url = self._build_api_url(f"verified_users/{platform}")
 
         async with aiohttp.ClientSession() as session:
             # Get list of CSV files in the platform directory
