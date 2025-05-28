@@ -305,7 +305,7 @@ class ConstitutionStore:
                                 "id": row["id"],
                                 "display_name": row.get("display name", "").strip(),
                                 "username": row.get("username", "").strip(),
-                                "weight": row.get("weight", "1").strip(),
+                                "weight": float(row.get("weight", 1.0).strip()),
                                 "source_file": csv_file[
                                     "name"
                                 ],  # Track which file this came from
