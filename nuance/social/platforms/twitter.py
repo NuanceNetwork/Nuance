@@ -32,7 +32,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve twitter user data using Datura API.
         """
-        api_url = "https://apis.datura.ai/twitter/user"
+        api_url = "https://api.desearch.ai/twitter/user"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
@@ -46,7 +46,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve twitter post/ tweet data using Datura API.
         """
-        api_url = "https://apis.datura.ai/twitter/post"
+        api_url = "https://api.desearch.ai/twitter/post"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
@@ -60,7 +60,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve all posts for a given username using Datura API.
         """
-        api_url = "https://apis.datura.ai/twitter"
+        api_url = "https://api.desearch.ai/twitter"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
@@ -74,7 +74,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve all replies for a given username using Datura API.
         """
-        api_url = "https://apis.datura.ai/twitter"
+        api_url = "https://api.desearch.ai/twitter"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
@@ -88,7 +88,7 @@ class TwitterPlatform(BasePlatform):
         """
         Retrieve all quotes for a given username using Datura API.
         """
-        api_url = "https://apis.datura.ai/twitter"
+        api_url = "https://api.desearch.ai/twitter"
         headers = {
             "Authorization": self.DATURA_API_KEY,
             "Content-Type": "application/json",
