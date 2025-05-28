@@ -12,6 +12,7 @@ import numpy as np
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+import argparse
 import uvicorn
 from scalar_fastapi import get_scalar_api_reference
 
@@ -42,6 +43,7 @@ from neurons.validator.api_server.dependencies import (
     get_account_repo,
     get_nuance_checker,
 )
+from neurons.validator.scoring import ScoreCalculator
 
 
 app = FastAPI(
@@ -110,19 +112,21 @@ async def get_miner_stats(
         posts = await post_repo.find_many(
             platform_type=platform_type, account_id=account_id
         )
-        
+
         for post in posts:
             post_interaction_counts = 0
-            
+
             if only_count_accepted:
                 interactions = await interaction_repo.find_many(
-                    platform_type=platform_type, post_id=post.post_id, processing_status=models.ProcessingStatus.ACCEPTED
+                    platform_type=platform_type,
+                    post_id=post.post_id,
+                    processing_status=models.ProcessingStatus.ACCEPTED,
                 )
             else:
                 interactions = await interaction_repo.find_many(
                     platform_type=platform_type, post_id=post.post_id
                 )
-            
+
             post_interaction_counts = len(interactions)
             interaction_count += len(interactions)
 
@@ -148,6 +152,7 @@ async def get_miner_scores(
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     metagraph: Annotated[bt.Metagraph, Depends(get_metagraph)],
+    score_calculator: ScoreCalculator = Depends(ScoreCalculator),
 ):
     """
     Get scores for all miners.
@@ -171,76 +176,14 @@ async def get_miner_scores(
 
     # 2. Calculate scores for all miners (keyed by hotkey)
     node_scores: dict[str, dict[str, float]] = {}  # {hotkey: {category: score}}
+    node_scores = await score_calculator.aggregate_interaction_scores(
+        recent_interactions=recent_interactions,
+        cutoff_date=cutoff_date,
+        post_repository=post_repo,
+        account_repository=account_repo,
+        node_repository=node_repo,
+    )
 
-    for interaction in recent_interactions:
-        try:
-            # Get the post being interacted with
-            post = await post_repo.get_by(
-                platform_type=interaction.platform_type, post_id=interaction.post_id
-            )
-            if not post:
-                logger.warning(
-                    f"Post not found for interaction {interaction.interaction_id}"
-                )
-                continue
-            elif post.processing_status != models.ProcessingStatus.ACCEPTED:
-                logger.warning(
-                    f"Post {post.post_id} is not accepted for interaction {interaction.interaction_id}"
-                )
-                continue
-
-            interaction.post = post
-
-            # Get the account that made the post (miner's account)
-            post_account = await account_repo.get_by_platform_id(
-                post.platform_type, post.account_id
-            )
-            if not post_account:
-                logger.warning(f"Account not found for post {post.post_id}")
-                continue
-
-            # Get the account that made the interaction
-            interaction_account = await account_repo.get_by_platform_id(
-                interaction.platform_type, interaction.account_id
-            )
-            if not interaction_account:
-                logger.warning(
-                    f"Account not found for interaction {interaction.interaction_id}"
-                )
-                continue
-            interaction.social_account = interaction_account
-
-            # Get the node that own the account
-            node = await node_repo.get_by_hotkey_netuid(
-                post_account.node_hotkey, settings.NETUID
-            )
-            if not node:
-                logger.warning(f"Node not found for account {post_account.account_id}")
-                continue
-
-            # Get node (miner) for scoring
-            miner_hotkey = node.node_hotkey
-
-            # Calculate score for this interaction
-            interaction_scores = calculate_interaction_score(
-                interaction=interaction,
-                cutoff_date=cutoff_date,
-            )
-
-            # Add to node's score
-            if miner_hotkey not in node_scores:
-                node_scores[miner_hotkey] = {}
-            for category, score in interaction_scores.items():
-                if category not in node_scores[miner_hotkey]:
-                    node_scores[miner_hotkey][category] = 0.0
-                node_scores[miner_hotkey][category] += score
-
-        except Exception as e:
-            logger.error(
-                f"Error scoring interaction {interaction.interaction_id}: {traceback.format_exc()}"
-            )
-
-    # 3. Set weights for all nodes
     # We create a score array for each category
     categories_scores = {
         category: np.zeros(len(metagraph.hotkeys))
@@ -400,7 +343,7 @@ async def get_miner_posts(
                 processing_status=post.processing_status,
                 processing_note=post.processing_note,
                 interaction_count=len(interactions),
-                created_at=post.created_at
+                created_at=post.created_at,
             )
         )
 
@@ -470,7 +413,7 @@ async def get_miner_interactions(
             content=interaction.content,
             processing_status=interaction.processing_status,
             processing_note=interaction.processing_note,
-            created_at=interaction.created_at
+            created_at=interaction.created_at,
         )
         for interaction in paginated_interactions
     ]
@@ -506,7 +449,10 @@ async def get_recent_posts(
     try:
         # If cutoff_date is not provided, use 14 days ago
         if cutoff_date is None:
-            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+            cutoff_date = (
+                datetime.datetime.now(tz=datetime.timezone.utc)
+                - datetime.timedelta(days=14)
+            ).isoformat()
 
         # Parse the cutoff_date string to a datetime object
         # Try ISO format first (with time)
@@ -565,7 +511,7 @@ async def get_recent_posts(
             else:
                 username = ""
                 profile_pic_url = ""
-                
+
             result.append(
                 PostVerificationResponse(
                     platform_type=post.platform_type,
@@ -629,7 +575,7 @@ async def get_post(
         processing_status=post.processing_status,
         processing_note=post.processing_note,
         interaction_count=len(interactions),
-        created_at=post.created_at
+        created_at=post.created_at,
     )
 
 
@@ -693,7 +639,7 @@ async def get_post_interactions(
                 content=interaction.content,
                 processing_status=interaction.processing_status,
                 processing_note=interaction.processing_note,
-                created_at=interaction.created_at, 
+                created_at=interaction.created_at,
             )
         )
 
@@ -728,7 +674,10 @@ async def get_recent_interactions(
     try:
         # If cutoff_date is not provided, use 14 days ago
         if cutoff_date is None:
-            cutoff_date = (datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=14)).isoformat()
+            cutoff_date = (
+                datetime.datetime.now(tz=datetime.timezone.utc)
+                - datetime.timedelta(days=14)
+            ).isoformat()
 
         # Parse the cutoff_date string to a datetime object
         # Try ISO format first (with time)
@@ -819,7 +768,7 @@ async def get_interaction(
         content=interaction.content,
         processing_status=interaction.processing_status,
         processing_note=interaction.processing_note,
-        created_at=interaction.created_at
+        created_at=interaction.created_at,
     )
 
 
@@ -909,62 +858,6 @@ async def scalar_html():
         show_sidebar=True,
     )
 
-
-def calculate_interaction_score(
-    interaction: models.Interaction,
-    cutoff_date: datetime.datetime,
-) -> dict[str, float]:
-    """
-    Calculate score for an interaction based on type, recency, and account influence.
-
-    Args:
-        interaction: The interaction to score
-        interaction_account: The account that made the interaction
-        cutoff_date: The date beyond which interactions are not scored (14 days ago)
-
-    Returns:
-        dict[str, float]: The calculated score for each category
-    """
-    interaction.created_at = interaction.created_at.replace(
-        tzinfo=datetime.timezone.utc
-    )
-    # Skip if the interaction is too old
-    if interaction.created_at < cutoff_date:
-        return {}
-
-    type_weights = {
-        models.InteractionType.REPLY: 1.0,
-    }
-
-    base_score = type_weights.get(interaction.interaction_type, 0.5)
-
-    # Recency factor - newer interactions get higher scores
-    now = datetime.datetime.now(tz=datetime.timezone.utc)
-    age_days = (now - interaction.created_at).days
-    max_age = 14  # Max age in days
-
-    # Linear decay from 1.0 (today) to 0.1 (14 days old)
-    recency_factor = 1.0 - (0.9 * age_days / max_age)
-
-    # Account influence factor (based on followers)
-    followers = interaction.social_account.extra_data.get("followers_count", 0)
-    influence_factor = min(1.0, followers / 10000)  # Cap at 1.0
-
-    score = base_score * recency_factor * math.log(1 + influence_factor)
-
-    # Scores for categories / topics (all same as score above)
-    post_topics = interaction.post.topics
-    if not post_topics:
-        interaction_scores: dict[str, float] = {"other": score}
-    else:
-        interaction_scores: dict[str, float] = {
-            topic: score
-            for topic in post_topics
-        }
-    logger.debug(f"Interaction scores: {interaction_scores}")
-    return interaction_scores
-
-
 async def run_api_server(port: int, shutdown_event: asyncio.Event) -> None:
     """
     Run the FastAPI server with uvicorn
@@ -989,7 +882,10 @@ async def run_api_server(port: int, shutdown_event: asyncio.Event) -> None:
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--port", type=int, default=8000)
+    args = parser.parse_args()
     # For direct execution during development
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=args.port)
