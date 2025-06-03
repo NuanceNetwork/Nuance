@@ -428,6 +428,7 @@ async def get_recent_posts(
     skip: int = 0,
     limit: int = 20,
     min_interactions: int = 1,
+    only_scored: bool = True,
 ):
     """
     Get recent posts from a specific platform created after the cutoff date.
@@ -441,6 +442,7 @@ async def get_recent_posts(
     - skip: Number of posts to skip (for pagination)
     - limit: Maximum number of posts to return
     - min_interactions: Minimum number of interactions required (default 1 to only reutnr posts with verified interactions)
+    - only_scored: Whether to filter posts by score (default True)
     """
     logger.info(
         f"Getting recent posts for platform: {platform_type}, cutoff: {cutoff_date}, min_interactions: {min_interactions}"
@@ -492,6 +494,17 @@ async def get_recent_posts(
             # Skip posts with fewer interactions than required
             if interaction_count < min_interactions:
                 continue
+
+            if only_scored:
+                skip_post = False
+                for interaction in interactions:
+                    if interaction.processing_status != models.ProcessingStatus.ACCEPTED:
+                        logger.debug(f"Interaction {interaction.interaction_id} is not accepted, skipping post {post.post_id}")
+                        skip_post = True
+                        break
+
+                if skip_post:
+                    continue
 
             result_posts.append(post)
 
