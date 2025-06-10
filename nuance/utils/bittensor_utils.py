@@ -1,8 +1,11 @@
 # nuance/utils/bittensor_utils.py
 import asyncio
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, Optional, TYPE_CHECKING
 
 import bittensor as bt
+from bittensor.utils import unlock_key, Certificate
+from bittensor.utils.networking import get_external_ip
+from bittensor.core.extrinsics.asyncex.serving import serve_extrinsic
 
 import nuance.constants as cst
 from nuance.utils.logging import logger
@@ -80,6 +83,67 @@ get_metagraph: Callable[..., Awaitable[bt.Metagraph]] = bittensor_objects_manage
 async def get_axons() -> list[bt.AxonInfo]:
     metagraph = await get_metagraph()
     return metagraph.axons
+
+
+async def serve_axon_extrinsic(
+    subtensor: bt.AsyncSubtensor,
+    wallet: bt.Wallet,
+    netuid: int,
+    external_port: int,
+    external_ip: Optional[str] = None,
+    wait_for_inclusion: bool = False,
+    wait_for_finalization: bool = True,
+    certificate: Optional[Certificate] = None,
+):
+    """Serves the axon to the network.
+
+    Args:
+        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): Subtensor instance object.
+        netuid (int): The ``netuid`` being served on.
+        external_port (int): External port for the axon
+        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning ``True``, or
+            returns ``False`` if the extrinsic fails to enter the block within the timeout.
+        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
+            ``True``, or returns ``False`` if the extrinsic fails to be finalized within the timeout.
+        certificate (bittensor.utils.Certificate): Certificate to use for TLS. If ``None``, no TLS will be used.
+            Defaults to ``None``.
+
+    Returns:
+        success (bool): Flag is ``True`` if extrinsic was finalized or included in the block. If we did not wait for
+            finalization / inclusion, the response is ``True``.
+    """
+    if not (unlock := unlock_key(wallet, "hotkey")).success:
+        logger.error(unlock.message)
+        return False
+
+    # ---- Get external ip ----
+    if external_ip is None:
+        try:
+            external_ip = await asyncio.get_running_loop().run_in_executor(
+                None, get_external_ip
+            )
+            logger.success(
+                f":white_heavy_check_mark: [green]Found external ip:[/green] [blue]{external_ip}[/blue]"
+            )
+        except Exception as e:
+            raise ConnectionError(
+                f"Unable to attain your external ip. Check your internet connection. error: {e}"
+            ) from e
+
+    # ---- Subscribe to chain ----
+    serve_success = await serve_extrinsic(
+        subtensor=subtensor,
+        wallet=wallet,
+        ip=external_ip,
+        port=external_port,
+        protocol=4,
+        netuid=netuid,
+        wait_for_inclusion=wait_for_inclusion,
+        wait_for_finalization=wait_for_finalization,
+        certificate=certificate,
+    )
+    return serve_success
+
 
 async def is_validator(hotkey: str = None, uid: int = None) -> bool:
     metagraph = await get_metagraph()

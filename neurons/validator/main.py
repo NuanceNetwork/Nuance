@@ -1,9 +1,7 @@
 # neurons/validator/main.py
 import asyncio
 import datetime
-from typing import Optional
 import json
-import math
 import traceback
 
 import bittensor as bt
@@ -23,7 +21,7 @@ import nuance.models as models
 from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
-from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph
+from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph, serve_axon_extrinsic
 from nuance.settings import settings
 
 from neurons.validator.scoring import ScoreCalculator
@@ -71,6 +69,14 @@ class NuanceValidator:
             loop="none"
         )
         self.submission_server = uvicorn.Server(config)
+        # Post IP to chain with bittensor 's serving axon
+        await serve_axon_extrinsic(
+            subtensor=self.subtensor,
+            wallet=self.wallet,
+            netuid=settings.NETUID,
+            external_port=settings.SUBMISSION_SERVER_PORT,
+            external_ip=None  # Set this to None to explicitly check external IP
+        )
 
         # Initialize bittensor objects
         self.subtensor = await get_subtensor()
