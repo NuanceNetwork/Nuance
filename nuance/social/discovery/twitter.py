@@ -65,7 +65,6 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             _tweet_to_interaction(
                 reply,
                 social_account=reply.get("user"),
-                interaction_type=models.InteractionType.REPLY,
             )
             for reply in replies
         ]
@@ -76,7 +75,6 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             _tweet_to_interaction(
                 quote,
                 social_account=quote.get("user"),
-                interaction_type=models.InteractionType.QUOTE,
             )
             for quote in quotes
         ]
@@ -348,7 +346,7 @@ def _tweet_to_interaction(
     tweet: dict,
     social_account: models.SocialAccount = None,
     post: models.Post = None,
-    interaction_type: models.InteractionType = models.InteractionType.REPLY,
+    # interaction_type: models.InteractionType = models.InteractionType.REPLY,
 ) -> models.Interaction:
     """
     Convert a Twitter tweet dictionary to an Interaction object.
@@ -357,14 +355,21 @@ def _tweet_to_interaction(
         social_account = _twitter_user_to_social_account(social_account)
     if post is not None and isinstance(post, dict):
         post = _tweet_to_post(post)
+
+    # process interaction_type
+    if tweet.get("is_quote_tweet") is True:
+        interaction_type = models.InteractionType.QUOTE
+        post_id = tweet.get("quoted_status_id")
+    else:
+        interaction_type = models.InteractionType.REPLY
+        post_id = tweet.get("in_reply_to_status_id")
+
     return models.Interaction(
         interaction_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
         interaction_type=interaction_type,
         account_id=tweet.get("user", {}).get("id"),
-        post_id=tweet.get("in_reply_to_status_id")
-        if interaction_type == models.InteractionType.REPLY
-        else tweet.get("quoted_status_id"),
+        post_id=post_id,
         content=tweet.get("text"),
         created_at=datetime.datetime.strptime(
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"

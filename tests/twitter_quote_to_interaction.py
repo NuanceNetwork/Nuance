@@ -129,7 +129,7 @@ def test_quote_to_interaction():
         }
     }""")
 
-    interaction = _tweet_to_interaction(quote, social_account=quote["user"], interaction_type=models.InteractionType.QUOTE)
+    interaction = _tweet_to_interaction(quote, social_account=quote["user"])
     print(interaction)
 
 if __name__ == "__main__":
