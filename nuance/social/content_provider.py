@@ -95,7 +95,7 @@ class SocialContentProvider:
     async def discover_contents_streaming(self, social_account: models.SocialAccount) -> AsyncGenerator[models.Post | models.Interaction, None]:
         pass
     
-    async def get_post(self, platform: str, post_id: str) -> Optional[dict[str, Any]]:
+    async def get_post(self, platform: str, post_id: str) -> Optional[models.Post]:
         """
         Get a post by ID.
         
@@ -113,3 +113,20 @@ class SocialContentProvider:
             logger.error(f"Error getting post: {str(e)}")
             return None
         
+    async def get_interaction(self, platform: str, interaction_id: str) -> Optional[models.Interaction]:
+        """
+        Get an interaction by ID.
+
+        Args:
+            platform: Platform name
+            interaction_id: Interaction ID
+            
+        Returns:
+            Interaction data or None if not found
+        """
+        try:
+            discovery = self._get_discovery(platform)
+            return await discovery.get_interaction(interaction_id)
+        except Exception as e:
+            logger.error(f"Error getting post: {str(e)}")
+            return None

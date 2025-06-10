@@ -34,6 +34,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
         return _tweet_to_post(raw_post, social_account=raw_post.get("user"))
+    
+    async def get_interaction(self, interaction_id: str) -> models.Interaction:
+        # We only support replies and quotes retweet at the moment and they are Tweets
+        raw_interaction = await self.platform.get_post(interaction_id)
+        return _tweet_to_interaction(raw_interaction, social_account=raw_interaction.get("user"))
 
     async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:

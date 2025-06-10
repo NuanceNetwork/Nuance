@@ -89,8 +89,8 @@ class NuanceValidator:
 
         # Start workers
         self.workers = [
-            asyncio.create_task(self.process_submissions()),
             asyncio.create_task(self.submission_server.serve()),
+            asyncio.create_task(self.process_submissions()),
             asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
@@ -103,24 +103,114 @@ class NuanceValidator:
     async def process_submissions(self):
         while True:
             try:
+                # Get submission from queue
                 submission_data = await self.submission_queue.get()
 
                 node_hotkey = submission_data.get("hotkey")
-                if node_hotkey not in self.metagraph.hotkeys:
-                    continue
+                platform = submission_data.get("platform")
+                account_id = submission_data.get("account_id")
+                username = submission_data.get("username")
+                verification_post_id = submission_data.get("verification_post_id")
+                post_id = submission_data.get("post_id")
+                interaction_id = submission_data.get("interaction_id")
+                uuid = submission_data.get("uuid")
+                from_gossip = submission_data.get("from_gossip", False)
 
+                logger.info(
+                    f"Processing submission from {node_hotkey} (UUID: {uuid}, "
+                    f"gossip: {from_gossip}, account: {account_id})"
+                )
+
+                # Verify node exists in metagraph
+                if node_hotkey not in self.metagraph.hotkeys:
+                    logger.warning(f"Node {node_hotkey} not in metagraph, skipping")
+                    continue
+                
+                # Create/update node
                 node = models.Node(
                     node_hotkey=node_hotkey,
                     node_netuid=settings.NETUID
                 )
-                # Upsert node to database
                 await self.node_repository.upsert(node)
 
                 # Verify the account
+                commit = models.Commit(
+                    node_hotkey=node_hotkey,
+                    node_netuid=settings.NETUID,
+                    platform=platform,
+                    account_id=account_id if account_id else None,
+                    username=username if username else None,
+                    verification_post_id=verification_post_id
+                )
+                account, error = await self.social.verify_account(commit, node)
+                if not account:
+                    logger.warning(
+                        f"Account {commit.username} is not verified: {error}"
+                    )
+                    continue
 
-                # Get the interaction, will include post 
+                # Upsert account to database
+                await self.account_repository.upsert(account)
 
+                # Process post if provided
+                if post_id:
+                    existing_post = await self.post_repository.get_by(
+                        platform_type=platform,
+                        post_id=post_id
+                    )
+                    
+                    if not existing_post:
+                        # Fetch post using social provider
+                        post = await self.social.get_post(platform, post_id)
+                        
+                        if post is not None:                            
+                            # Queue for processing
+                            await self.post_queue.put(post)
+                            logger.info(f"Queued post {post_id} for processing")
+                        else:
+                            logger.warning(f"Could not fetch post {post_id}")
+                    else:
+                        logger.debug(f"Post {post_id} already exists")
 
+                # Process interaction if provided (requires post_id)
+                if interaction_id:
+                    # Double-check post_id exists (should be validated already)
+                    if not post_id:
+                        logger.error(f"Interaction {interaction_id} submitted without post_id")
+                        continue
+                    
+                    existing_interaction = await self.interaction_repository.get_by(
+                        platform_type=platform,
+                        interaction_id=interaction_id
+                    )
+
+                    if not existing_interaction:
+                        # Use the get_interaction API
+                        interaction = await self.social.get_interaction(platform, interaction_id)
+                        
+                        if interaction:
+                            # Verify the interaction is to the submitted post
+                            if interaction.post_id != post_id:
+                                logger.warning(
+                                    f"Interaction {interaction_id} is not to post {post_id}, "
+                                    f"actual parent: {interaction.post_id}"
+                                )
+                                continue
+                            
+                            # Queue for processing
+                            await self.interaction_queue.put(interaction)
+                            logger.info(
+                                f"Queued interaction {interaction_id} "
+                                f"({interaction.interaction_type}) to post {post_id}"
+                            )
+                        else:
+                            logger.warning(f"Could not fetch interaction {interaction_id}")
+                    else:
+                        logger.debug(f"Interaction {interaction_id} already exists")
+                        
+            except Exception:
+                logger.error(f"Error processing submission: {traceback.format_exc()}")
+                await asyncio.sleep(1)  # Brief pause on error
 
 
     async def content_discovering(self):
