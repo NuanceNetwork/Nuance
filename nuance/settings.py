@@ -51,6 +51,15 @@ class Settings(BaseSettings):
         description="Echo SQL statements to stdout (defaults to debug setting if None)."
     )
 
+    # Submission server settings
+    SUBMISSION_SERVER_HOST: str = Field(
+        default="0.0.0.0",
+        description="Validator 's submission server 's IP address."
+    )
+    SUBMISSION_SERVER_PORT: int = Field(
+        description="Validator 's submission server 's port."
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )

@@ -249,7 +249,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             return {"posts": [], "interactions": []}
 
     async def verify_account(
-        self, username: str, verification_post_id: str, node: models.Node
+        self, 
+        username: Optional[str] = None, 
+        account_id: Optional[str] = None,
+        verification_post_id: str = None,
+        node: models.Node = None
     ) -> tuple[models.SocialAccount, Optional[str]]:
         try:
             raw_verification_post = await self.platform.get_post(verification_post_id)
@@ -258,11 +262,20 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 raw_verification_post.get("user"), node=node
             )
             verification_post.social_account = social_account
-            # Check if username is correct
-            assert verification_post.social_account.account_username == username, (
-                f"Username mismatch: {verification_post.social_account.account_username} != {username}"
-            )
-            # Check if miner 's hotkey is in the post text
+            
+            # Check if username is correct (if provided)
+            if username:
+                assert verification_post.social_account.account_username == username, (
+                    f"Username mismatch: {verification_post.social_account.account_username} != {username}"
+                )
+            
+            # Check if account_id is correct (if provided)
+            if account_id:
+                assert verification_post.social_account.account_id == account_id, (
+                    f"Account ID mismatch: {verification_post.social_account.account_id} != {account_id}"
+                )
+                
+            # Check if miner's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
             # Check if the post quotes the Nuance announcement post
             assert verification_post.extra_data["is_quote_tweet"]
@@ -272,8 +285,9 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             )
             return verification_post.social_account, None
         except Exception as e:
+            identifier = username or account_id or "unknown"
             logger.error(
-                f"❌ Error verifying account {username} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
+                f"❌ Error verifying account {identifier} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
             return None, str(e)
 

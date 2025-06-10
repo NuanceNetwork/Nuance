@@ -76,3 +76,17 @@ bittensor_objects_manager = BittensorObjectsManager()
 get_wallet: Callable[..., Awaitable[bt.Wallet]] = bittensor_objects_manager._get_wallet
 get_subtensor: Callable[..., Awaitable[bt.AsyncSubtensor]] = bittensor_objects_manager._get_subtensor
 get_metagraph: Callable[..., Awaitable[bt.Metagraph]] = bittensor_objects_manager._get_metagraph
+
+async def get_axons() -> list[bt.AxonInfo]:
+    metagraph = await get_metagraph()
+    return metagraph.axons
+
+async def is_validator(hotkey: str = None, uid: int = None) -> bool:
+    metagraph = await get_metagraph()
+
+    assert hotkey or uid, "Need to provide either hotkey or uid!"
+
+    if hotkey:
+        uid = metagraph.hotkeys.index(hotkey)
+
+    return bool(metagraph.validator_permit[uid])

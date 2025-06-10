@@ -8,6 +8,7 @@ import traceback
 
 import bittensor as bt
 import numpy as np
+import uvicorn
 
 import nuance.constants as cst
 from nuance.chain import get_commitments
@@ -26,6 +27,7 @@ from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagrap
 from nuance.settings import settings
 
 from neurons.validator.scoring import ScoreCalculator
+from neurons.validator.submission_server.app import create_submission_app
 
 
 class NuanceValidator:
@@ -33,6 +35,7 @@ class NuanceValidator:
         # Processing queues
         self.post_queue = asyncio.Queue()
         self.interaction_queue = asyncio.Queue()
+        self.submission_queue = asyncio.Queue()
 
         # Dependency tracking and cache
         self.processed_posts_cache = {}  # In-memory cache for fast lookup
@@ -57,6 +60,18 @@ class NuanceValidator:
 
         self.score_calculator = ScoreCalculator()
 
+        # Initialize submission server
+        self.submission_app = create_submission_app(
+            submission_queue=self.submission_queue
+        )
+        config = uvicorn.Config(
+            app=self.submission_app,
+            host=settings.SUBMISSION_SERVER_HOST,
+            port=settings.SUBMISSION_SERVER_PORT,
+            loop="none"
+        )
+        self.submission_server = uvicorn.Server(config)
+
         # Initialize bittensor objects
         self.subtensor = await get_subtensor()
         self.wallet = await get_wallet()
@@ -74,6 +89,8 @@ class NuanceValidator:
 
         # Start workers
         self.workers = [
+            asyncio.create_task(self.process_submissions()),
+            asyncio.create_task(self.submission_server.serve()),
             asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
@@ -81,6 +98,30 @@ class NuanceValidator:
         ]
 
         logger.info("Validator initialized successfully")
+
+
+    async def process_submissions(self):
+        while True:
+            try:
+                submission_data = await self.submission_queue.get()
+
+                node_hotkey = submission_data.get("hotkey")
+                if node_hotkey not in self.metagraph.hotkeys:
+                    continue
+
+                node = models.Node(
+                    node_hotkey=node_hotkey,
+                    node_netuid=settings.NETUID
+                )
+                # Upsert node to database
+                await self.node_repository.upsert(node)
+
+                # Verify the account
+
+                # Get the interaction, will include post 
+
+
+
 
     async def content_discovering(self):
         """
