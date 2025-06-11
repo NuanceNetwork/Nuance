@@ -58,6 +58,21 @@ class NuanceValidator:
 
         self.score_calculator = ScoreCalculator()
 
+        # Initialize bittensor objects
+        self.subtensor = await get_subtensor()
+        self.wallet = await get_wallet()
+        self.metagraph = await get_metagraph()
+        
+        # Check if validator is registered to chain
+        if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
+            logger.error(
+                f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
+            )
+            exit()
+        else:
+            self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
+            logger.info(f"Running validator on uid: {self.uid}")
+
         # Initialize submission server
         self.submission_app = create_submission_app(
             submission_queue=self.submission_queue
@@ -78,26 +93,11 @@ class NuanceValidator:
             external_ip=None  # Set this to None to explicitly check external IP
         )
 
-        # Initialize bittensor objects
-        self.subtensor = await get_subtensor()
-        self.wallet = await get_wallet()
-        self.metagraph = await get_metagraph()
-        
-        # Check if validator is registered to chain
-        if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
-            logger.error(
-                f"\nYour validator: {self.wallet} is not registered to chain connection: {self.subtensor} \nRun 'btcli register' and try again."
-            )
-            exit()
-        else:
-            self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
-            logger.info(f"Running validator on uid: {self.uid}")
-
         # Start workers
         self.workers = [
             asyncio.create_task(self.submission_server.serve()),
             asyncio.create_task(self.process_submissions()),
-            asyncio.create_task(self.content_discovering()),
+            # asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
             asyncio.create_task(self.score_aggregating()),

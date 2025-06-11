@@ -1,16 +1,13 @@
 # neurons/validator/submission_server/app.py
 import asyncio
-import json
 import time
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 import bittensor as bt
 from fastapi import BackgroundTasks, Depends, FastAPI
-from pydantic import BaseModel
 
 from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
-from nuance.utils.epistula import verify_request
 from nuance.utils.logging import logger
 
 from .dependencies import create_verified_dependency, create_gossip_verified_dependency

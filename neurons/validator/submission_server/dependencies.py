@@ -34,7 +34,7 @@ def create_verified_dependency(
     Returns:
         Dependency function for FastAPI
     """
-    async def verify_and_parse(request: Union[Request, tuple[bytes, dict]]) -> tuple[T, dict]:
+    async def verify_and_parse(request: Request) -> tuple[T, dict]:
         """
         Verify Epistula signature and parse body.
         
@@ -50,14 +50,8 @@ def create_verified_dependency(
             expected_receiver = self_hotkey
 
         try:
-            # Determine input form
-            if isinstance(request, Request):
-                body = await request.body()
-                headers = dict(request.headers)
-            elif isinstance(request, tuple) and len(request) == 2:
-                body, headers = request
-            else:
-                raise HTTPException(500, "Invalid argument to verifier")
+            body = await request.body()
+            headers = dict(request.headers)
             
             # Verify signature
             is_valid, error, sender_hotkey = verify_request(
@@ -110,9 +104,11 @@ def create_gossip_verified_dependency() -> Callable:
     """
 
     async def verify_gossip(request: Request) -> tuple[T, dict]:
+        metagraph = await get_metagraph()
+
         outer_verifier = create_verified_dependency(GossipData, require_validator=True)
         gossip_data: GossipData
-        gossip_data, gossip_header = await outer_verifier(request)
+        gossip_data, gossip_headers = await outer_verifier(request)
 
         model_name = gossip_data.original_body_model
         if model_name not in MODEL_REGISTRY:
@@ -120,12 +116,32 @@ def create_gossip_verified_dependency() -> Callable:
 
         inner_model = MODEL_REGISTRY[model_name]
         # Since we currently do not re-broadcast, the expected receiver of the inner message is the one who broadcasted
-        expected_receiver = gossip_header.get("Epistula-Signed-By")
-        inner_verifier = create_verified_dependency(inner_model, expected_receiver=expected_receiver)
-
+        # Prepare inner data
         inner_body = bytes.fromhex(gossip_data.original_body_hex)
         inner_headers = gossip_data.original_headers
+        expected_receiver = gossip_headers.get("Epistula-Signed-By")
+        
+        is_valid, error, sender_hotkey = verify_request(
+            headers=inner_headers,
+            body=inner_body,
+            metagraph=metagraph,
+            expected_receiver=expected_receiver,
+        )
+        if not is_valid:
+            raise HTTPException(403, f"Invalid inner gossip request: {error}")
 
-        return await inner_verifier((inner_body, inner_headers))
+        # Parse
+        try:
+            data = json.loads(inner_body)
+            if inner_model is dict:
+                parsed = data
+            elif issubclass(inner_model, BaseModel):
+                parsed = inner_model(**data)
+            else:
+                raise HTTPException(500, "Invalid inner model type")
+        except json.JSONDecodeError:
+            raise HTTPException(400, "Invalid JSON in inner request")
+
+        return parsed, inner_headers
 
     return verify_gossip
