@@ -89,15 +89,15 @@ class NuanceValidator:
             subtensor=self.subtensor,
             wallet=self.wallet,
             netuid=settings.NETUID,
-            external_port=settings.SUBMISSION_SERVER_PORT,
-            external_ip=None  # Set this to None to explicitly check external IP
+            external_port=settings.SUBMISSION_SERVER_EXTERNAL_PORT,
+            external_ip=settings.SUBMISSION_SERVER_PUBLIC_IP
         )
 
         # Start workers
         self.workers = [
             asyncio.create_task(self.submission_server.serve()),
             asyncio.create_task(self.process_submissions()),
-            # asyncio.create_task(self.content_discovering()),
+            asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
             asyncio.create_task(self.score_aggregating()),

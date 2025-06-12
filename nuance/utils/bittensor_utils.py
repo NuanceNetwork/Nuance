@@ -117,7 +117,7 @@ async def serve_axon_extrinsic(
         return False
 
     # ---- Get external ip ----
-    if external_ip is None:
+    if not external_ip or external_ip == "0.0.0.0":
         try:
             external_ip = await asyncio.get_running_loop().run_in_executor(
                 None, get_external_ip
