@@ -58,6 +58,7 @@ class Settings(BaseSettings):
                 "Default (0.0.0.0) listens on all interfaces.",
     )
     SUBMISSION_SERVER_PORT: int = Field(
+        default=10000,
         description="Internal port where the validator's submission server runs."
     )
     SUBMISSION_SERVER_PUBLIC_IP: str = Field(
@@ -66,6 +67,7 @@ class Settings(BaseSettings):
                 "Must match the inbound IP in your cloud/firewall settings.",
     )
     SUBMISSION_SERVER_EXTERNAL_PORT: int = Field(
+        default=10000,
         description="Public-facing port (if behind NAT/proxy). Set to `SUBMISSION_SERVER_PORT` if no port mapping exists."
     )
 

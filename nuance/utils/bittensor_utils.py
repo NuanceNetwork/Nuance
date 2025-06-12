@@ -1,7 +1,9 @@
 # nuance/utils/bittensor_utils.py
 import asyncio
+import hashlib
 from typing import Callable, Awaitable, Optional, TYPE_CHECKING
 
+import base58
 import bittensor as bt
 from bittensor.utils import unlock_key, Certificate
 from bittensor.utils.networking import get_external_ip
@@ -84,6 +86,29 @@ async def get_axons() -> list[bt.AxonInfo]:
     metagraph = await get_metagraph()
     return metagraph.axons
 
+async def get_owner_hotkey() -> str:
+    metagraph = await get_metagraph()
+
+    public_key_bytes = metagraph.owner_hotkey[0]
+    # Prefix for Substrate address
+    prefix = 42
+    prefix_bytes = bytes([prefix])
+
+    input_bytes = prefix_bytes + public_key_bytes
+
+    # Calculate checksum (blake2b-512)
+    blake2b = hashlib.blake2b(digest_size=64)
+    blake2b.update(b"SS58PRE" + input_bytes)
+    checksum = blake2b.digest()
+    checksum_bytes = checksum[:2]  # Take first two bytes of checksum
+
+    # Final bytes = prefix + public key + checksum
+    final_bytes = input_bytes + checksum_bytes
+
+    # Convert to base58
+    owner_hotkey_base58 = base58.b58encode(final_bytes).decode()
+
+    return owner_hotkey_base58
 
 async def serve_axon_extrinsic(
     subtensor: bt.AsyncSubtensor,

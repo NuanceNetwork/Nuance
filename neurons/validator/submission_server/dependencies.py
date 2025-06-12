@@ -69,7 +69,7 @@ def create_verified_dependency(
                 raise HTTPException(403, "Only validators can access this endpoint")
             
             # Check UUID
-            uuid = headers.get("Epistula-Uuid")
+            uuid = headers.get("Epistula-Uuid") or headers.get("Epistula-Uuid".lower())
             if not uuid:
                 raise HTTPException(400, "Missing Epistula-Uuid header")
             
@@ -119,7 +119,7 @@ def create_gossip_verified_dependency() -> Callable:
         # Prepare inner data
         inner_body = bytes.fromhex(gossip_data.original_body_hex)
         inner_headers = gossip_data.original_headers
-        expected_receiver = gossip_headers.get("Epistula-Signed-By")
+        expected_receiver = gossip_headers.get("Epistula-Signed-By") or gossip_headers.get("Epistula-Signed-By".lower())
         
         is_valid, error, sender_hotkey = verify_request(
             headers=inner_headers,

@@ -140,7 +140,9 @@ class NuanceValidator:
                 await self.node_repository.upsert(node)
 
                 # Verify the account
+                node_uid = self.metagraph.hotkeys.index(node_hotkey)
                 commit = models.Commit(
+                    uid=node_uid,
                     node_hotkey=node_hotkey,
                     node_netuid=settings.NETUID,
                     platform=platform,

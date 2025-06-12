@@ -69,8 +69,8 @@ def create_submission_app(
         background_tasks: BackgroundTasks,
     ):
         submission_data, headers = verified_submission
-        uuid = headers.get("Epistula-Uuid")
-        sender_hotkey = headers.get("Epistula-Signed-By")
+        uuid = headers.get("Epistula-Uuid") or headers.get("Epistula-Uuid".lower())
+        sender_hotkey = headers.get("Epistula-Signed-By") or headers.get("Epistula-Signed-By".lower())
         sender_uid = metagraph.hotkeys.index(sender_hotkey)
 
         # Now the code is much cleaner!

@@ -1,4 +1,4 @@
-"""Epistula V2 protocol utilities"""
+"""Epistula V2 protocol utilities with case-insensitive header handling"""
 import json
 import time
 from hashlib import sha256
@@ -9,6 +9,24 @@ from typing import Any, Optional
 import bittensor as bt
 
 ALLOWED_DELTA_MS = 8000  # 8 seconds
+
+def get_header_case_insensitive(headers: dict, key: str) -> Optional[str]:
+    """Get header value in a case-insensitive way"""
+    # Try exact match first
+    if key in headers:
+        return headers[key]
+    
+    # Try lowercase
+    key_lower = key.lower()
+    if key_lower in headers:
+        return headers[key_lower]
+    
+    # Try all variations
+    for header_key, header_value in headers.items():
+        if header_key.lower() == key_lower:
+            return header_value
+    
+    return None
 
 def create_request(
     data: dict[str, Any],
@@ -64,13 +82,13 @@ def verify_request(
     Returns (is_valid, error_message, sender_hotkey)
     """
     try:
-        # Extract headers
-        signature = headers.get("Epistula-Request-Signature")
-        timestamp = headers.get("Epistula-Timestamp")
-        uuid_str = headers.get("Epistula-Uuid")
-        signed_for = headers.get("Epistula-Signed-For", "")
-        signed_by = headers.get("Epistula-Signed-By")
-        version = headers.get("Epistula-Version")
+        # Extract headers using case-insensitive lookup
+        signature = get_header_case_insensitive(headers, "Epistula-Request-Signature")
+        timestamp = get_header_case_insensitive(headers, "Epistula-Timestamp")
+        uuid_str = get_header_case_insensitive(headers, "Epistula-Uuid")
+        signed_for = get_header_case_insensitive(headers, "Epistula-Signed-For") or ""
+        signed_by = get_header_case_insensitive(headers, "Epistula-Signed-By")
+        version = get_header_case_insensitive(headers, "Epistula-Version")
         
         # Check version
         if version != "2":
@@ -129,9 +147,9 @@ def verify_secret_signatures(
     This proves the sender knows who they're sending to.
     """
     try:
-        timestamp = headers.get("Epistula-Timestamp")
-        signed_by = headers.get("Epistula-Signed-By")
-        signed_for = headers.get("Epistula-Signed-For")
+        timestamp = get_header_case_insensitive(headers, "Epistula-Timestamp")
+        signed_by = get_header_case_insensitive(headers, "Epistula-Signed-By")
+        signed_for = get_header_case_insensitive(headers, "Epistula-Signed-For")
         
         if not all([timestamp, signed_by, signed_for]):
             return False
@@ -149,7 +167,7 @@ def verify_secret_signatures(
         
         for i, interval_offset in enumerate([-1, 0, 1]):
             sig_header = f"Epistula-Secret-Signature-{i}"
-            signature = headers.get(sig_header, "")
+            signature = get_header_case_insensitive(headers, sig_header) or ""
             
             if signature.startswith("0x"):
                 signature = signature[2:]
