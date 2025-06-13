@@ -1,11 +1,12 @@
 # neurons/validator/submission_server/app.py
 import asyncio
+import json
 import time
 from contextlib import asynccontextmanager
 from typing import Annotated
 
 import bittensor as bt
-from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 
 from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
 from nuance.utils.logging import logger
@@ -61,6 +62,7 @@ def create_submission_app(
 
     @app.post("/submit")
     async def submit_content(
+        request: Request,
         verified_submission: Annotated[
             tuple[SubmissionData, dict],
             Depends(create_verified_dependency(data_model=SubmissionData)),
@@ -79,7 +81,7 @@ def create_submission_app(
 
         # Check rate limit
         alpha_stake = metagraph.alpha_stake[sender_uid]
-        if not is_validator(sender_hotkey, metagraph):
+        if not await is_validator(sender_hotkey, metagraph):
             allowed, message, _ = await rate_limiter.check_and_update(
                 sender_hotkey, alpha_stake
             )
@@ -100,7 +102,7 @@ def create_submission_app(
         )
 
         # Gossip to other validators in background
-        original_body = submission_data.model_dump_json().encode()
+        original_body = await request.body()
         background_tasks.add_task(
             gossip_handler.broadcast_submission,
             original_body,
@@ -123,9 +125,9 @@ def create_submission_app(
         Only accepts requests from validators with sufficient stake.
         """
         submission_data, headers = verified_submission
-        uuid = headers.get("Epistula-Uuid")
-        sender_hotkey = headers.get("Epistula-Signed-By")
-
+        uuid = headers.get("Epistula-Uuid".lower())
+        sender_hotkey = headers.get("Epistula-Signed-By".lower())
+        
         if not uuid:
             logger.warning("Gossip missing UUID")
             return {"status": "invalid"}
@@ -184,7 +186,7 @@ def create_submission_app(
         return {
             "hotkey": hotkey,
             "alpha_stake": alpha_stake,
-            "is_validator": is_validator(hotkey, metagraph),
+            "is_validator": await is_validator(hotkey, metagraph),
             "usage": usage,
         }
 

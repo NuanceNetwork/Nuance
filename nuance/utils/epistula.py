@@ -38,7 +38,7 @@ def create_request(
     Returns (body_bytes, headers)
     """
     # Convert data to bytes
-    body_bytes = json.dumps(data).encode('utf-8')
+    body_bytes = json.dumps(data).encode("utf-8")
     
     # Generate timestamp and UUID
     timestamp = round(time.time() * 1000)
