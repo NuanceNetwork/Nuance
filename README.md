@@ -20,15 +20,17 @@ The validator implements this incentive mechanism through several key steps:
 
 2. **Content Discovery**: Validators query on-chain commits to retrieve miners' X accounts. They then discover new posts made by miners, filtering them through Large Language Models (LLM) to ensure the content is nuanced and relevant to specific subjects, such as bittensor.
 
-3. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
+3. **Direct Submission (New)**: Miners can now submit their posts and interactions directly to validators via API, enabling faster content processing and reducing the load on validators' discovery systems.
 
-4. **Scoring**: Interactions are scored based on multiple factors:
+4. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
+
+5. **Scoring**: Interactions are scored based on multiple factors:
    - **Interaction Type**: Replies is the only supported interaction type at the moment
    - **Recency**: Only interactions within the last 14 days are considered, with newer interactions weighted higher
    - **Account Influence**: Higher scores for interactions from accounts with more followers
    - **Content Categories**: Scores are weighted by topic categories, allowing emphasis on specific subjects
 
-5. **Score Aggregation**: Final scores are calculated by:
+6. **Score Aggregation**: Final scores are calculated by:
    - Normalizing scores within each category
    - Applying category weights to prioritize certain topics
    - Setting weights on the Bittensor chain to determine miner rewards
