@@ -74,7 +74,6 @@ def create_submission_app(
         sender_hotkey = headers.get("Epistula-Signed-By") or headers.get("Epistula-Signed-By".lower())
         sender_uid = metagraph.hotkeys.index(sender_hotkey)
 
-        # Now the code is much cleaner!
         if gossip_handler.has_seen_uuid(uuid):
             return {"status": "already_processed"}
 

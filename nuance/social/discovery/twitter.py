@@ -266,6 +266,7 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             )
             verification_post.social_account = social_account
             
+            assert username or account_id
             # Check if username is correct (if provided)
             if username:
                 assert verification_post.social_account.account_username == username, (

@@ -1,9 +1,10 @@
+# neurons/validator/submission_server/rate_limiter.py
 """Stake-based rate limiting for submission server"""
 import asyncio
 import math
 from collections import defaultdict, deque
 from datetime import datetime, timedelta
-from typing import Dict, Deque, Tuple
+from typing import  Deque
 
 from nuance.utils.logging import logger
 
@@ -15,12 +16,10 @@ class RateLimiter:
         self,
         base_limit_per_hour: int = 10,  # Base limit for minimal stake
         max_limit_per_hour: int = 100,  # Max limit for high stake
-        stake_threshold: float = 100.0,   # Min stake for rate limiting
         cleanup_interval_seconds: int = 3600
     ):
         self.base_limit = base_limit_per_hour
         self.max_limit = max_limit_per_hour
-        self.stake_threshold = stake_threshold
         self.cleanup_interval = cleanup_interval_seconds
         
         # Track submissions by hotkey
@@ -79,7 +78,7 @@ class RateLimiter:
             hotkey_submissions.append(now)
             return True, f"OK: {current_count + 1}/{rate_limit} per hour", rate_limit
     
-    async def get_usage(self, hotkey: str, stake: float) -> Dict[str, int]:
+    async def get_usage(self, hotkey: str, stake: float) -> dict[str, int]:
         """Get current usage stats for a hotkey"""
         rate_limit = self.calculate_rate_limit(stake)
         

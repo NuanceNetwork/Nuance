@@ -29,7 +29,7 @@ class SubmissionData(BaseModel):
 
 class GossipData(BaseModel):
     """Gossip payload between validators"""
-    original_body_model: str  # Fully qualified name, e.g., "neurons.validator.submission_server.models.SubmissionData"
+    original_body_model: str  # One of the model in neurons/validator/submission_server/models.py
     original_body_hex: str
     original_headers: dict[str, str]
     forwarded_at: int = Field(default_factory=lambda: int(time.time() * 1000))

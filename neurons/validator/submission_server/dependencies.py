@@ -1,6 +1,6 @@
 # neurons/validator/submission_server/dependencies.py
 import json
-from typing import Awaitable, TypeVar, Type, Callable, Optional, Union
+from typing import Awaitable, TypeVar, Type, Callable, Optional
 
 from fastapi import Request, HTTPException
 from pydantic import BaseModel
@@ -9,7 +9,7 @@ from nuance.utils.epistula import verify_request
 from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
 from nuance.utils.logging import logger
 
-from .models import GossipData, SubmissionData, MODEL_REGISTRY
+from .models import GossipData, MODEL_REGISTRY
 
 
 # Generic type for any Pydantic model
@@ -20,7 +20,7 @@ def create_verified_dependency(
     data_model: Type[T],
     require_validator: bool = False,
     expected_receiver: Optional[str] = None
-) -> Callable[[Union[Request, tuple[bytes, dict]]], Awaitable[tuple[T, dict]]]:
+) -> Callable[[Request], Awaitable[tuple[T, dict]]]:
     """
     Factory to create a dependency that verifies Epistula signatures 
     and returns parsed data.
