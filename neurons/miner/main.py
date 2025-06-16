@@ -73,7 +73,6 @@ class Miner:
         # Inner method to send request to a single axon
         async def send_request_to_axon(axon: bt.AxonInfo):
             url = f"http://{axon.ip}:{axon.port}/submit"  # Update with the correct URL endpoint
-            print(url)
             request_body_bytes, request_headers = create_request(
                 data=data,
                 sender_keypair=self.wallet.hotkey,
@@ -83,8 +82,6 @@ class Miner:
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.post(url, json=data, headers=request_headers) as response:
-                        print(data)
-                        print(request_headers)
                         if response.status == 200:
                             return {'axon': axon.hotkey, 'status': response.status, 'response': await response.json()}
                         else:
