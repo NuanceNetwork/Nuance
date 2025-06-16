@@ -67,8 +67,7 @@ class Miner:
             if axon_hotkey not in self.metagraph.hotkeys:
                 continue
             axon_uid = self.metagraph.hotkeys.index(axon_hotkey)
-            # if self.metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
-            if axon.ip != "0.0.0.0":
+            if self.metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
                 all_validator_axons.append(axon)
 
         # Inner method to send request to a single axon

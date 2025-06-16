@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import bittensor as bt
-from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi import BackgroundTasks, Depends, FastAPI
 
 from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
 from nuance.utils.logging import logger
@@ -62,7 +62,6 @@ def create_submission_app(
 
     @app.post("/submit")
     async def submit_content(
-        request: Request,
         verified_submission: Annotated[
             tuple[SubmissionData, dict],
             Depends(create_verified_dependency(data_model=SubmissionData)),
@@ -102,10 +101,11 @@ def create_submission_app(
         )
 
         # Gossip to other validators in background
-        original_body = await request.body()
+        original_body = submission_data.model_dump()
+        original_body_bytes = json.dumps(original_body).encode()
         background_tasks.add_task(
             gossip_handler.broadcast_submission,
-            original_body,
+            original_body_bytes,
             "SubmissionData",
             headers,
         )

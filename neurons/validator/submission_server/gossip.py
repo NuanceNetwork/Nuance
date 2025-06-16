@@ -84,7 +84,7 @@ class GossipHandler:
     
     async def broadcast_submission(
         self, 
-        original_body: bytes,
+        original_body_bytes: bytes,
         original_body_model: str, 
         original_headers: dict[str, str]
     ):
@@ -105,7 +105,7 @@ class GossipHandler:
         
         # Prepare gossip data
         gossip_data = GossipData(
-            original_body_hex=original_body.hex(),
+            original_body_hex=original_body_bytes.hex(),
             original_body_model=original_body_model,
             original_headers=original_headers
         ).model_dump()
@@ -157,7 +157,7 @@ class GossipHandler:
         """
         try:
             # Create signed request with Epistula V2
-            body_bytes, headers = create_request(
+            request_body_bytes, request_headers = create_request(
                 data=gossip_data,
                 sender_keypair=(await get_wallet()).hotkey,
                 receiver_hotkey=receiver_hotkey
@@ -166,8 +166,8 @@ class GossipHandler:
             # Send request
             async with session.post(
                 url,
-                data=body_bytes,
-                headers=headers,
+                json=gossip_data,
+                headers=request_headers,
                 timeout=aiohttp.ClientTimeout(total=self.gossip_timeout)
             ) as response:
                 if response.status == 200:
