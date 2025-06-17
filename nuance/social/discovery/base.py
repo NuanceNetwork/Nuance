@@ -15,6 +15,10 @@ class BaseDiscoveryStrategy(ABC, Generic[T]):
     @abstractmethod
     async def get_post(self, *args, **kwargs) -> dict:
         pass
+
+    @abstractmethod
+    async def get_interaction(self, *args, **kwargs) -> dict:
+        pass
     
     async def discover_new_posts(self, *args, **kwargs) -> list[dict]:
         pass

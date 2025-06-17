@@ -15,6 +15,14 @@ Below is the minimum system requirements for running a validator node on the Nua
 - 16-GB RAM
 - 512-GB Storage
 
+## Network Requirements
+
+Validators now require a publicly accessible submission server for receiving direct submissions from miners:
+
+- **Public IP Address**: Required for peer-to-peer communication
+- **Open Port**: Default 10000 (configurable)
+- **Firewall Rules**: Allow inbound TCP connections on your submission server port
+
 ## Setup Instructions
 To set up a validator node on the Nuance Subnet, follow these steps:
 
@@ -105,6 +113,10 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     
     # Database configuration
     DATABASE_URL=sqlite+aiosqlite:///./nuance.db
+    
+    # Submission Server Configuration (REQUIRED)
+    SUBMISSION_SERVER_PUBLIC_IP=your.public.ip.address    # Get from your cloud provider
+    SUBMISSION_SERVER_EXTERNAL_PORT=10000                 # Port accessible from internet
     ```
 
     The `.env` file supports many configuration options:
@@ -131,9 +143,27 @@ To set up a validator node on the Nuance Subnet, follow these steps:
     DATABASE_MAX_OVERFLOW=10
     DATABASE_POOL_TIMEOUT=30
     DATABASE_ECHO=False
+    
+    # Submission Server Configuration
+    SUBMISSION_SERVER_PUBLIC_IP=your.public.ip.address    # REQUIRED: Your public IP
+    SUBMISSION_SERVER_EXTERNAL_PORT=10000                 # REQUIRED: Public port
+    SUBMISSION_SERVER_HOST=0.0.0.0                       # Interface to bind (default: all)
+    SUBMISSION_SERVER_PORT=10000                         # Internal port (default: 10000)
     ```
 
-5. Start the validator node
+5. Configure Firewall
+
+   Ensure your submission server port is accessible:
+   ```sh
+   # Example for UFW firewall
+   sudo ufw allow 10000/tcp
+   sudo ufw reload
+   
+   # Verify the port is open
+   sudo ufw status
+   ```
+
+6. Start the validator node
 
    Before starting the validator, ensure your wallet is registered on the subnet:
    ```sh
@@ -179,3 +209,23 @@ To set up a validator node on the Nuance Subnet, follow these steps:
    3. Start the validator with PM2
 
    The validator will read all configuration from your `.env` file, so you don't need to pass any parameters as command-line arguments.
+
+## Troubleshooting
+
+If miners cannot connect to your submission server:
+
+1. Verify your public IP is correct (Caution: We test this with Tensordock, so the IP from this command may not be accurate):
+   ```sh
+   curl ifconfig.me
+   ```
+
+2. Check if the port is accessible from outside, using external port:
+   ```sh
+   nc -zv your.public.ip.address 10000
+   ```
+
+3. Ensure no NAT/firewall is blocking the connection
+4. Check validator logs for any errors:
+   ```sh
+   pm2 logs validator_sn23 --lines 100
+   ```

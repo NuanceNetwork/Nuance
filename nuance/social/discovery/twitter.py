@@ -34,6 +34,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
         return _tweet_to_post(raw_post, social_account=raw_post.get("user"))
+    
+    async def get_interaction(self, interaction_id: str) -> models.Interaction:
+        # We only support replies and quotes retweet at the moment and they are Tweets
+        raw_interaction = await self.platform.get_post(interaction_id)
+        return _tweet_to_interaction(raw_interaction, social_account=raw_interaction.get("user"))
 
     async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:
@@ -60,7 +65,6 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             _tweet_to_interaction(
                 reply,
                 social_account=reply.get("user"),
-                interaction_type=models.InteractionType.REPLY,
             )
             for reply in replies
         ]
@@ -71,7 +75,6 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             _tweet_to_interaction(
                 quote,
                 social_account=quote.get("user"),
-                interaction_type=models.InteractionType.QUOTE,
             )
             for quote in quotes
         ]
@@ -249,7 +252,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             return {"posts": [], "interactions": []}
 
     async def verify_account(
-        self, username: str, verification_post_id: str, node: models.Node
+        self, 
+        username: Optional[str] = None, 
+        account_id: Optional[str] = None,
+        verification_post_id: str = None,
+        node: models.Node = None
     ) -> tuple[models.SocialAccount, Optional[str]]:
         try:
             raw_verification_post = await self.platform.get_post(verification_post_id)
@@ -258,11 +265,21 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 raw_verification_post.get("user"), node=node
             )
             verification_post.social_account = social_account
-            # Check if username is correct
-            assert verification_post.social_account.account_username == username, (
-                f"Username mismatch: {verification_post.social_account.account_username} != {username}"
-            )
-            # Check if miner 's hotkey is in the post text
+            
+            assert username or account_id
+            # Check if username is correct (if provided)
+            if username:
+                assert verification_post.social_account.account_username == username, (
+                    f"Username mismatch: {verification_post.social_account.account_username} != {username}"
+                )
+            
+            # Check if account_id is correct (if provided)
+            if account_id:
+                assert verification_post.social_account.account_id == account_id, (
+                    f"Account ID mismatch: {verification_post.social_account.account_id} != {account_id}"
+                )
+                
+            # Check if miner's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
             # Check if the post quotes the Nuance announcement post
             assert verification_post.extra_data["is_quote_tweet"]
@@ -272,8 +289,9 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             )
             return verification_post.social_account, None
         except Exception as e:
+            identifier = username or account_id or "unknown"
             logger.error(
-                f"❌ Error verifying account {username} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
+                f"❌ Error verifying account {identifier} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
             return None, str(e)
 
@@ -329,7 +347,7 @@ def _tweet_to_interaction(
     tweet: dict,
     social_account: models.SocialAccount = None,
     post: models.Post = None,
-    interaction_type: models.InteractionType = models.InteractionType.REPLY,
+    # interaction_type: models.InteractionType = models.InteractionType.REPLY,
 ) -> models.Interaction:
     """
     Convert a Twitter tweet dictionary to an Interaction object.
@@ -338,14 +356,21 @@ def _tweet_to_interaction(
         social_account = _twitter_user_to_social_account(social_account)
     if post is not None and isinstance(post, dict):
         post = _tweet_to_post(post)
+
+    # process interaction_type
+    if tweet.get("is_quote_tweet") is True:
+        interaction_type = models.InteractionType.QUOTE
+        post_id = tweet.get("quoted_status_id")
+    else:
+        interaction_type = models.InteractionType.REPLY
+        post_id = tweet.get("in_reply_to_status_id")
+
     return models.Interaction(
         interaction_id=tweet.get("id"),
         platform_type=models.PlatformType.TWITTER,
         interaction_type=interaction_type,
         account_id=tweet.get("user", {}).get("id"),
-        post_id=tweet.get("in_reply_to_status_id")
-        if interaction_type == models.InteractionType.REPLY
-        else tweet.get("quoted_status_id"),
+        post_id=post_id,
         content=tweet.get("text"),
         created_at=datetime.datetime.strptime(
             tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"

@@ -27,7 +27,7 @@ class Commit(BaseModel):
     node_netuid: int
     platform: PlatformType
     account_id: Optional[str] = None
-    username: str
+    username: Optional[str] = None
     verification_post_id: str
 
 

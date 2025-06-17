@@ -43,20 +43,28 @@ class SocialContentProvider:
             raise ValueError(f"Unsupported platform: {platform}")
         return self.discovery_strategies[platform]
     
-    async def verify_account(self, commit: models.Commit, node: models.Node) -> tuple[models.SocialAccount, Optional[str]]:
+    async def verify_account(
+        self, 
+        commit: models.Commit, 
+        node: models.Node
+    ) -> tuple[models.SocialAccount, Optional[str]]:
         """
         Verify an account from a commit. Return the social account if verified, otherwise return None and the error message.
         
         Args:
-            commit: Commit data containing platform, account_id, verification_post_id, hotkey
+            commit: Commit data containing platform, account_id/username, verification_post_id, hotkey
+            node: Node that is registering this account
             
         Returns:
             Tuple of (SocialAccount, error_message)
         """
         try:
             discovery = self._get_discovery(commit.platform)
+            
+            # Pass both username and account_id, let the strategy decide which to use
             account, error = await discovery.verify_account(
                 username=commit.username,
+                account_id=commit.account_id,
                 verification_post_id=commit.verification_post_id,
                 node=node,
             )
@@ -87,7 +95,7 @@ class SocialContentProvider:
     async def discover_contents_streaming(self, social_account: models.SocialAccount) -> AsyncGenerator[models.Post | models.Interaction, None]:
         pass
     
-    async def get_post(self, platform: str, post_id: str) -> Optional[dict[str, Any]]:
+    async def get_post(self, platform: str, post_id: str) -> Optional[models.Post]:
         """
         Get a post by ID.
         
@@ -105,3 +113,20 @@ class SocialContentProvider:
             logger.error(f"Error getting post: {str(e)}")
             return None
         
+    async def get_interaction(self, platform: str, interaction_id: str) -> Optional[models.Interaction]:
+        """
+        Get an interaction by ID.
+
+        Args:
+            platform: Platform name
+            interaction_id: Interaction ID
+            
+        Returns:
+            Interaction data or None if not found
+        """
+        try:
+            discovery = self._get_discovery(platform)
+            return await discovery.get_interaction(interaction_id)
+        except Exception as e:
+            logger.error(f"Error getting post: {str(e)}")
+            return None

@@ -1,8 +1,6 @@
-# neurons/validator/api_server.py
+# neurons/validator/api_server/app.py
 import asyncio
 import datetime
-import math
-import traceback
 from typing import Annotated, Awaitable, Callable
 
 import bittensor as bt
