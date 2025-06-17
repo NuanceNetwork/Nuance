@@ -72,7 +72,7 @@ class RateLimiter:
             # Check limit
             current_count = len(hotkey_submissions)
             if current_count >= rate_limit:
-                return False, f"Rate limit exceeded: {current_count}/{rate_limit} per hour (stake: {stake:.1f} TAO)", rate_limit
+                return False, f"Rate limit exceeded: {current_count}/{rate_limit} per hour (stake: {stake:.1f} Alpha)", rate_limit
             
             # Add new submission
             hotkey_submissions.append(now)
