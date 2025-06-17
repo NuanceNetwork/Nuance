@@ -214,12 +214,12 @@ To set up a validator node on the Nuance Subnet, follow these steps:
 
 If miners cannot connect to your submission server:
 
-1. Verify your public IP is correct:
+1. Verify your public IP is correct (Caution: We test this with Tensordock, so the IP from this command may not be accurate):
    ```sh
    curl ifconfig.me
    ```
 
-2. Check if the port is accessible from outside:
+2. Check if the port is accessible from outside, using external port:
    ```sh
    nc -zv your.public.ip.address 10000
    ```
