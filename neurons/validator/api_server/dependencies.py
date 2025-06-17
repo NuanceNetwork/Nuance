@@ -5,7 +5,7 @@ from typing import Callable, Awaitable
 from nuance.database.engine import get_db_session
 from nuance.database import PostRepository, InteractionRepository, SocialAccountRepository, NodeRepository
 from nuance.processing.nuance_check import NuanceChecker
-
+from nuance.constitution import constitution_store
 
 from nuance.processing.llm import query_llm
 # Dependency for database repositories
@@ -28,7 +28,7 @@ def get_nuance_checker() -> Callable[[str], Awaitable[bool]]:
     
     async def nuance_checker(content: str) -> bool:
         # Get the nuance prompt
-        nuance_prompt = await nuance_checker_processor.get_nuance_prompt()
+        nuance_prompt = await constitution_store.get_nuance_prompt()
         
         # Format the prompt with the post content
         prompt_nuance = nuance_prompt.format(tweet_text=content)

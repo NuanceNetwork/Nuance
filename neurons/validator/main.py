@@ -1,13 +1,12 @@
 # neurons/validator/main.py
 import asyncio
 import datetime
-from typing import Optional
 import json
-import math
 import traceback
 
 import bittensor as bt
 import numpy as np
+import uvicorn
 
 import nuance.constants as cst
 from nuance.chain import get_commitments
@@ -22,10 +21,11 @@ import nuance.models as models
 from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
-from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph
+from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph, serve_axon_extrinsic
 from nuance.settings import settings
 
 from neurons.validator.scoring import ScoreCalculator
+from neurons.validator.submission_server.app import create_submission_app
 
 
 class NuanceValidator:
@@ -33,6 +33,7 @@ class NuanceValidator:
         # Processing queues
         self.post_queue = asyncio.Queue()
         self.interaction_queue = asyncio.Queue()
+        self.submission_queue = asyncio.Queue()
 
         # Dependency tracking and cache
         self.processed_posts_cache = {}  # In-memory cache for fast lookup
@@ -72,8 +73,30 @@ class NuanceValidator:
             self.uid = self.metagraph.hotkeys.index(self.wallet.hotkey.ss58_address)
             logger.info(f"Running validator on uid: {self.uid}")
 
+        # Initialize submission server
+        self.submission_app = create_submission_app(
+            submission_queue=self.submission_queue
+        )
+        config = uvicorn.Config(
+            app=self.submission_app,
+            host=settings.SUBMISSION_SERVER_HOST,
+            port=settings.SUBMISSION_SERVER_PORT,
+            loop="none"
+        )
+        self.submission_server = uvicorn.Server(config)
+        # Post IP to chain with bittensor 's serving axon
+        await serve_axon_extrinsic(
+            subtensor=self.subtensor,
+            wallet=self.wallet,
+            netuid=settings.NETUID,
+            external_port=settings.SUBMISSION_SERVER_EXTERNAL_PORT,
+            external_ip=settings.SUBMISSION_SERVER_PUBLIC_IP
+        )
+
         # Start workers
         self.workers = [
+            asyncio.create_task(self.submission_server.serve()),
+            asyncio.create_task(self.process_submissions()),
             asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
@@ -81,6 +104,122 @@ class NuanceValidator:
         ]
 
         logger.info("Validator initialized successfully")
+
+
+    async def process_submissions(self):
+        while True:
+            try:
+                # Get submission from queue
+                submission_data = await self.submission_queue.get()
+
+                node_hotkey = submission_data.get("hotkey")
+                platform = submission_data.get("platform")
+                account_id = submission_data.get("account_id")
+                username = submission_data.get("username")
+                verification_post_id = submission_data.get("verification_post_id")
+                post_id = submission_data.get("post_id")
+                interaction_id = submission_data.get("interaction_id")
+                uuid = submission_data.get("uuid")
+                from_gossip = submission_data.get("from_gossip", False)
+
+                logger.info(
+                    f"Processing submission from {node_hotkey} (UUID: {uuid}, "
+                    f"gossip: {from_gossip}, account: {account_id})"
+                )
+
+                # Verify node exists in metagraph
+                if node_hotkey not in self.metagraph.hotkeys:
+                    logger.warning(f"Node {node_hotkey} not in metagraph, skipping")
+                    continue
+                
+                # Create/update node
+                node = models.Node(
+                    node_hotkey=node_hotkey,
+                    node_netuid=settings.NETUID
+                )
+                await self.node_repository.upsert(node)
+
+                # Verify the account
+                node_uid = self.metagraph.hotkeys.index(node_hotkey)
+                commit = models.Commit(
+                    uid=node_uid,
+                    node_hotkey=node_hotkey,
+                    node_netuid=settings.NETUID,
+                    platform=platform,
+                    account_id=account_id if account_id else None,
+                    username=username if username else None,
+                    verification_post_id=verification_post_id
+                )
+                account, error = await self.social.verify_account(commit, node)
+                if not account:
+                    logger.warning(
+                        f"Account {commit.username} is not verified: {error}"
+                    )
+                    continue
+
+                # Upsert account to database
+                await self.account_repository.upsert(account)
+
+                # Process post if provided
+                if post_id:
+                    existing_post = await self.post_repository.get_by(
+                        platform_type=platform,
+                        post_id=post_id
+                    )
+                    
+                    if not existing_post:
+                        # Fetch post using social provider
+                        post = await self.social.get_post(platform, post_id)
+                        
+                        if post is not None:                            
+                            # Queue for processing
+                            await self.post_queue.put(post)
+                            logger.info(f"Queued post {post_id} for processing")
+                        else:
+                            logger.warning(f"Could not fetch post {post_id}")
+                    else:
+                        logger.debug(f"Post {post_id} already exists")
+
+                # Process interaction if provided (requires post_id)
+                if interaction_id:
+                    # Double-check post_id exists (should be validated already)
+                    if not post_id:
+                        logger.error(f"Interaction {interaction_id} submitted without post_id")
+                        continue
+                    
+                    existing_interaction = await self.interaction_repository.get_by(
+                        platform_type=platform,
+                        interaction_id=interaction_id
+                    )
+
+                    if not existing_interaction:
+                        # Use the get_interaction API
+                        interaction = await self.social.get_interaction(platform, interaction_id)
+                        
+                        if interaction:
+                            # Verify the interaction is to the submitted post
+                            if interaction.post_id != post_id:
+                                logger.warning(
+                                    f"Interaction {interaction_id} is not to post {post_id}, "
+                                    f"actual parent: {interaction.post_id}"
+                                )
+                                continue
+                            
+                            # Queue for processing
+                            await self.interaction_queue.put(interaction)
+                            logger.info(
+                                f"Queued interaction {interaction_id} "
+                                f"({interaction.interaction_type}) to post {post_id}"
+                            )
+                        else:
+                            logger.warning(f"Could not fetch interaction {interaction_id}")
+                    else:
+                        logger.debug(f"Interaction {interaction_id} already exists")
+                        
+            except Exception:
+                logger.error(f"Error processing submission: {traceback.format_exc()}")
+                await asyncio.sleep(1)  # Brief pause on error
+
 
     async def content_discovering(self):
         """

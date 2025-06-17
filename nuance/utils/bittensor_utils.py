@@ -1,8 +1,13 @@
 # nuance/utils/bittensor_utils.py
 import asyncio
-from typing import Callable, Awaitable
+import hashlib
+from typing import Callable, Awaitable, Optional, TYPE_CHECKING
 
+import base58
 import bittensor as bt
+from bittensor.utils import unlock_key, Certificate
+from bittensor.utils.networking import get_external_ip
+from bittensor.core.extrinsics.asyncex.serving import serve_extrinsic
 
 import nuance.constants as cst
 from nuance.utils.logging import logger
@@ -76,3 +81,101 @@ bittensor_objects_manager = BittensorObjectsManager()
 get_wallet: Callable[..., Awaitable[bt.Wallet]] = bittensor_objects_manager._get_wallet
 get_subtensor: Callable[..., Awaitable[bt.AsyncSubtensor]] = bittensor_objects_manager._get_subtensor
 get_metagraph: Callable[..., Awaitable[bt.Metagraph]] = bittensor_objects_manager._get_metagraph
+
+async def get_axons() -> list[bt.AxonInfo]:
+    metagraph = await get_metagraph()
+    return metagraph.axons
+
+async def get_owner_hotkey() -> str:
+    metagraph = await get_metagraph()
+
+    public_key_bytes = metagraph.owner_hotkey[0]
+    # Prefix for Substrate address
+    prefix = 42
+    prefix_bytes = bytes([prefix])
+
+    input_bytes = prefix_bytes + public_key_bytes
+
+    # Calculate checksum (blake2b-512)
+    blake2b = hashlib.blake2b(digest_size=64)
+    blake2b.update(b"SS58PRE" + input_bytes)
+    checksum = blake2b.digest()
+    checksum_bytes = checksum[:2]  # Take first two bytes of checksum
+
+    # Final bytes = prefix + public key + checksum
+    final_bytes = input_bytes + checksum_bytes
+
+    # Convert to base58
+    owner_hotkey_base58 = base58.b58encode(final_bytes).decode()
+
+    return owner_hotkey_base58
+
+async def serve_axon_extrinsic(
+    subtensor: bt.AsyncSubtensor,
+    wallet: bt.Wallet,
+    netuid: int,
+    external_port: int,
+    external_ip: Optional[str] = None,
+    wait_for_inclusion: bool = False,
+    wait_for_finalization: bool = True,
+    certificate: Optional[Certificate] = None,
+):
+    """Serves the axon to the network.
+
+    Args:
+        subtensor (bittensor.core.async_subtensor.AsyncSubtensor): Subtensor instance object.
+        netuid (int): The ``netuid`` being served on.
+        external_port (int): External port for the axon
+        wait_for_inclusion (bool): If set, waits for the extrinsic to enter a block before returning ``True``, or
+            returns ``False`` if the extrinsic fails to enter the block within the timeout.
+        wait_for_finalization (bool): If set, waits for the extrinsic to be finalized on the chain before returning
+            ``True``, or returns ``False`` if the extrinsic fails to be finalized within the timeout.
+        certificate (bittensor.utils.Certificate): Certificate to use for TLS. If ``None``, no TLS will be used.
+            Defaults to ``None``.
+
+    Returns:
+        success (bool): Flag is ``True`` if extrinsic was finalized or included in the block. If we did not wait for
+            finalization / inclusion, the response is ``True``.
+    """
+    if not (unlock := unlock_key(wallet, "hotkey")).success:
+        logger.error(unlock.message)
+        return False
+
+    # ---- Get external ip ----
+    if not external_ip or external_ip == "0.0.0.0":
+        try:
+            external_ip = await asyncio.get_running_loop().run_in_executor(
+                None, get_external_ip
+            )
+            logger.success(
+                f":white_heavy_check_mark: [green]Found external ip:[/green] [blue]{external_ip}[/blue]"
+            )
+        except Exception as e:
+            raise ConnectionError(
+                f"Unable to attain your external ip. Check your internet connection. error: {e}"
+            ) from e
+
+    # ---- Subscribe to chain ----
+    serve_success = await serve_extrinsic(
+        subtensor=subtensor,
+        wallet=wallet,
+        ip=external_ip,
+        port=external_port,
+        protocol=4,
+        netuid=netuid,
+        wait_for_inclusion=wait_for_inclusion,
+        wait_for_finalization=wait_for_finalization,
+        certificate=certificate,
+    )
+    return serve_success
+
+
+async def is_validator(hotkey: str = None, uid: int = None) -> bool:
+    metagraph = await get_metagraph()
+
+    assert hotkey or uid, "Need to provide either hotkey or uid!"
+
+    if hotkey:
+        uid = metagraph.hotkeys.index(hotkey)
+
+    return bool(metagraph.validator_permit[uid])

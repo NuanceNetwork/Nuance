@@ -51,6 +51,26 @@ class Settings(BaseSettings):
         description="Echo SQL statements to stdout (defaults to debug setting if None)."
     )
 
+    # Submission server settings
+    SUBMISSION_SERVER_HOST: str = Field(
+        default="0.0.0.0",
+        description="Network interface to bind the submission server to. "
+                "Default (0.0.0.0) listens on all interfaces.",
+    )
+    SUBMISSION_SERVER_PORT: int = Field(
+        default=10000,
+        description="Internal port where the validator's submission server runs."
+    )
+    SUBMISSION_SERVER_PUBLIC_IP: str = Field(
+        default="",
+        description="REQUIRED: Public IP address for peer connections. "
+                "Must match the inbound IP in your cloud/firewall settings.",
+    )
+    SUBMISSION_SERVER_EXTERNAL_PORT: int = Field(
+        default=10000,
+        description="Public-facing port (if behind NAT/proxy). Set to `SUBMISSION_SERVER_PORT` if no port mapping exists."
+    )
+
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", case_sensitive=True, extra="ignore"
     )
