@@ -54,7 +54,7 @@ class ScoreCalculator:
         # Base type weights
         type_weights = {
             models.InteractionType.REPLY: 1.0,
-            models.InteractionType.QUOTE: 3.0,
+            models.InteractionType.QUOTE: 6.0,
         }
 
         base_score = type_weights.get(interaction.interaction_type, 0.5) * interaction_base_score
