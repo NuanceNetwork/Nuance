@@ -183,9 +183,9 @@ def create_submission_app(
         usage = await rate_limiter.get_usage(hotkey, alpha_stake)
 
         return {
-            "hotkey": hotkey,
-            "alpha_stake": alpha_stake,
-            "is_validator": await is_validator(hotkey, metagraph),
+            "hotkey": str(hotkey),
+            "alpha_stake": float(alpha_stake),
+            "is_validator": bool(await is_validator(hotkey, metagraph)),
             "usage": usage,
         }
 
