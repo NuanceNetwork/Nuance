@@ -40,6 +40,7 @@ from neurons.validator.api_server.dependencies import (
     get_interaction_repo,
     get_account_repo,
     get_nuance_checker,
+    get_topic_checker,
 )
 from neurons.validator.scoring import ScoreCalculator
 
@@ -854,12 +855,31 @@ async def check_nuance(
     ],
 ):
     """
-    Check text against nuance criteria (rate-limited to 10 requests per minute)
+    Check text against nuance criteria (rate-limited to 2 requests per minute)
     """
     is_nuanced = await nuance_checker(content)
 
     return is_nuanced
 
+@app.post("/topic/check", response_model=dict)
+@limiter.limit("2/minute")
+async def check_topic(
+    request: Request, 
+    content: Annotated[str, Body(..., embed=True)], 
+    topic: Annotated[str, Body(..., embed=True)], 
+    topic_checker: Annotated[
+        Callable[[str, str], Awaitable[bool]], Depends(get_topic_checker)
+    ],
+):
+    """
+    Check text against nuance criteria (rate-limited to 2 requests per minute)
+    """
+    is_this_topic, is_valid_topic = await topic_checker(content=content, topic=topic)
+
+    return {
+        "is_this_topic": is_this_topic, 
+        "is_valid_topic": is_valid_topic, 
+    }
 
 @app.get("/scalar", include_in_schema=False)
 async def scalar_html():
