@@ -84,24 +84,26 @@ class LLMService:
         Call the LLM API.
         """
         url = "https://api.nineteen.ai/v1/chat/completions"
-        if settings.NINETEEN_API_KEY:
-            print(f"Using provided API key: {settings.NINETEEN_API_KEY}")
-            # Use provided API key if provided
-            headers = {
-                "Authorization": f"Bearer {settings.NINETEEN_API_KEY}",
-                "Content-Type": "application/json",
-            }
-        else:
-            # Use authorization by validator's signature
-            nonce = str(time.time_ns())
-            signature = f"0x{keypair.sign(nonce).hex()}"
-            headers = {
-                "validator-hotkey": keypair.ss58_address,
-                "signature": signature,
-                "nonce": nonce,
-                "netuid": "23",
-                "Content-Type": "application/json",
-            }
+        
+        # if settings.NINETEEN_API_KEY:
+        #     print(f"Using provided API key: {settings.NINETEEN_API_KEY}")
+        #     # Use provided API key if provided
+        #     headers = {
+        #         "Authorization": f"Bearer {settings.NINETEEN_API_KEY}",
+        #         "Content-Type": "application/json",
+        #     }
+        # else:
+
+        # Use authorization by validator's signature
+        nonce = str(time.time_ns())
+        signature = f"0x{keypair.sign(nonce).hex()}"
+        headers = {
+            "validator-hotkey": keypair.ss58_address,
+            "signature": signature,
+            "nonce": nonce,
+            "netuid": "23",
+            "Content-Type": "application/json",
+        }
 
         payload = {
             "model": model,
