@@ -89,9 +89,11 @@ class ScoreCalculator:
                 category = "other"
             
             # Get ranked score
-            platform_verified_users = await constitution_store.get_verified_users_by_platform_and_category(interaction.platform_type)
-            this_category_verified_users = platform_verified_users.get(category, {})
-            rank_multiplier = this_category_verified_users.get(interaction_user_id, {}).get("weight", 0)
+            verified_users = await constitution_store.get_verified_users(platform=interaction.platform_type, category=category)
+            rank_multiplier = 0
+            for user_data in verified_users:
+                if user_data.get("id") == interaction_user_id:
+                    rank_multiplier = user_data.get("weight", 0)
             
             # Final score with engagement weight
             final_score = topic_score * rank_multiplier

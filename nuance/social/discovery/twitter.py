@@ -193,7 +193,8 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             for interaction in all_interactions:
                 interaction_id = interaction.interaction_id
                 # 1.1 Check if the interaction comes from a verified username using the CSV list using user id.
-                verified_user_ids = await constitution_store.get_verified_user_ids(models.PlatformType.TWITTER)
+                verified_users = await constitution_store.get_verified_users(platform=models.PlatformType.TWITTER)
+                verified_user_ids = set([user["id"] for user in verified_users])
                 if interaction.account_id not in verified_user_ids:
                     logger.info(
                         f"🚫 Interaction {interaction_id} from unverified account with id {interaction.account_id}; skipping."

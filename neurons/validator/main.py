@@ -18,6 +18,7 @@ from nuance.database import (
     NodeRepository,
 )
 import nuance.models as models
+from nuance.constitution import constitution_store
 from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
@@ -445,6 +446,10 @@ class NuanceValidator:
                     tz=datetime.timezone.utc
                 ) - datetime.timedelta(days=cst.SCORING_WINDOW)
 
+                # Get constitution config
+                constitution_config = await constitution_store.get_constitution_config()
+                constitution_topics = constitution_config.get("topics", {})
+
                 # 1. Get all interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
@@ -473,7 +478,7 @@ class NuanceValidator:
 
                 # 3. Set weights for all nodes
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(cst.CATEGORIES_WEIGHTS.keys())}
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constitution_topics.keys())}
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
@@ -490,7 +495,7 @@ class NuanceValidator:
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
+                    scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
                 
                 scores_weights = scores.tolist()
 
