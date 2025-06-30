@@ -485,7 +485,8 @@ class NuanceValidator:
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
-                            categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
+                            if category in categories_scores:
+                                categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
                             
                 # Normalize scores for each category
                 for category in categories_scores:
@@ -496,7 +497,13 @@ class NuanceValidator:
                         # If category has no score (no interaction) then we burn
                         categories_scores[category] = np.zeros_like(categories_scores[category])
                         categories_scores[category][owner_hotkey_index] = 1.0
-                        
+                    
+                    positive_score_uid = np.where(categories_scores[category] > 0)[0]
+                    logger.info(f"Weights of topic {category}: \n" + \
+                                f"Uids: {positive_score_uid} \n" + \
+                                f"Weights: {categories_scores[category][positive_score_uid]}"
+                                )
+
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:

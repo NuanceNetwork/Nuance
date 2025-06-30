@@ -50,7 +50,7 @@ class ConstitutionStore:
         self._url_cache = {}
 
         # Locks
-        self._url_cache_lock = defaultdict(asyncio.Lock())
+        self._url_cache_lock = defaultdict(asyncio.Lock)
 
     def _build_api_url(self, path: str) -> str:
         """Build API URL with branch reference"""
