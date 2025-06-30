@@ -485,7 +485,22 @@ class NuanceValidator:
                     if np.sum(categories_scores[category]) > 0:
                         categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
                     else:
-                        categories_scores[category] = np.ones(len(self.metagraph.hotkeys)) / len(self.metagraph.hotkeys)
+                        # this will make all miner have weight of this category if no one score any
+                        # categories_scores[category] = np.ones(len(self.metagraph.hotkeys)) / len(self.metagraph.hotkeys) 
+                        # now we add the category to burned instead
+                        scores = np.zeros(len(self.metagraph.hotkeys))
+                        owner_hotkey = "5HN1QZq7MyGnutpToCZGdiabP3D339kBjKXfjb1YFaHacdta"
+                        owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
+                        logger.info(f"🔥 Burn alpha of category {category} by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
+                        scores[owner_hotkey_index] = 1
+                        categories_scores[category] = scores
+
+                    positive_score_uid = np.where(categories_scores[category] > 0)[0]
+                    logger.info(f"Weights of topic {category}: \n" + \
+                                f"Uids: {positive_score_uid} \n" + \
+                                f"Weights: {categories_scores[category][positive_score_uid]}"
+                                )
+                        
                         
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
