@@ -52,12 +52,7 @@ class ScoreCalculator:
             return None
 
         # Base type weights
-        type_weights = {
-            models.InteractionType.REPLY: 1.0,
-            models.InteractionType.QUOTE: 6.0,
-        }
-
-        base_score = type_weights.get(interaction.interaction_type, 0.5) * interaction_base_score
+        base_score = models.INTERACTION_TYPE_WEIGHTS.get(interaction.interaction_type, 0.5) * interaction_base_score
 
         # Recency factor - newer interactions get higher scores
         now = datetime.datetime.now(tz=datetime.timezone.utc)
