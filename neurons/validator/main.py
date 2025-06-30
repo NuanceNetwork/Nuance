@@ -477,6 +477,9 @@ class NuanceValidator:
                 )
 
                 # 3. Set weights for all nodes
+                owner_hotkey = self.metagraph.owner_hotkey
+                owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
+
                 # We create a score array for each category
                 categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constitution_topics.keys())}
                 for hotkey, scores in node_scores.items():
@@ -490,7 +493,9 @@ class NuanceValidator:
                     if np.sum(categories_scores[category]) > 0:
                         categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
                     else:
-                        categories_scores[category] = np.ones(len(self.metagraph.hotkeys)) / len(self.metagraph.hotkeys)
+                        # If category has no score (no interaction) then we burn
+                        categories_scores[category] = np.zeros_like(categories_scores[category])
+                        categories_scores[category][owner_hotkey_index] = 1.0
                         
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
@@ -501,15 +506,12 @@ class NuanceValidator:
 
                 # Burn
                 alpha_burn_weights = [0.0] * len(self.metagraph.hotkeys)
-                owner_hotkey = "5HN1QZq7MyGnutpToCZGdiabP3D339kBjKXfjb1YFaHacdta"
-                owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
                 logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
                 alpha_burn_weights[owner_hotkey_index] = 1
                 
                 # Combine weights
-                alpha_burn_ratio = 0.7
                 combined_weights = [
-                    (alpha_burn_ratio * alpha_burn_weight) + ((1 - alpha_burn_ratio) * score_weight)
+                    (cst.ALPHA_BURN_RATIO * alpha_burn_weight) + ((1 - cst.ALPHA_BURN_RATIO) * score_weight)
                     for alpha_burn_weight, score_weight in zip(alpha_burn_weights, scores_weights)
                 ]
 
