@@ -21,6 +21,11 @@ class InteractionType(str, Enum):
     REPLY = "reply"
     QUOTE = "quote"
 
+INTERACTION_TYPE_WEIGHTS = {
+    InteractionType.REPLY: 0.0,
+    InteractionType.QUOTE: 6.0,
+}
+
 class Commit(BaseModel):
     uid: int
     node_hotkey: str

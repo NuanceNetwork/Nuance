@@ -52,12 +52,7 @@ class ScoreCalculator:
             return None
 
         # Base type weights
-        type_weights = {
-            models.InteractionType.REPLY: 1.0,
-            models.InteractionType.QUOTE: 6.0,
-        }
-
-        base_score = type_weights.get(interaction.interaction_type, 0.5) * interaction_base_score
+        base_score = models.INTERACTION_TYPE_WEIGHTS.get(interaction.interaction_type, 0.5) * interaction_base_score
 
         # Recency factor - newer interactions get higher scores
         now = datetime.datetime.now(tz=datetime.timezone.utc)
@@ -89,9 +84,11 @@ class ScoreCalculator:
                 category = "other"
             
             # Get ranked score
-            platform_verified_users = await constitution_store.get_verified_users_by_platform_and_category(interaction.platform_type)
-            this_category_verified_users = platform_verified_users.get(category, {})
-            rank_multiplier = this_category_verified_users.get(interaction_user_id, {}).get("weight", 0)
+            verified_users = await constitution_store.get_verified_users(platform=interaction.platform_type, category=category)
+            rank_multiplier = 0
+            for user_data in verified_users:
+                if user_data.get("id") == interaction_user_id:
+                    rank_multiplier = user_data.get("weight", 0)
             
             # Final score with engagement weight
             final_score = topic_score * rank_multiplier
