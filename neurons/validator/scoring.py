@@ -8,7 +8,6 @@ from typing import Optional
 import nuance.constants as cst
 from nuance.database import (
     PostRepository,
-    InteractionRepository,
     SocialAccountRepository,
     NodeRepository,
 )
@@ -72,14 +71,13 @@ class ScoreCalculator:
         interaction_user_id = interaction.account_id
         
         # Score for each topic/category the post belongs to
+        all_active_topics = await constitution_store.get_topic_weights()
         for topic in post_topics:
             topic_score = calculated_score
             
             # Determine category and apply engagement weight
-            if topic == "nuance_subnet":
-                category = "nuance_subnet"
-            elif topic == "bittensor": 
-                category = "bittensor"
+            if topic in all_active_topics:
+                category = topic
             else:
                 category = "other"
             
@@ -89,6 +87,7 @@ class ScoreCalculator:
             for user_data in verified_users:
                 if user_data.get("id") == interaction_user_id:
                     rank_multiplier = user_data.get("weight", 0)
+                    break
             
             # Final score with engagement weight
             final_score = topic_score * rank_multiplier

@@ -160,7 +160,7 @@ class ConstitutionStore:
                 return {}
 
             topic_weights = {}
-            for topic_name, topic_config in config["topic"].items():
+            for topic_name, topic_config in config["topics"].items():
                 if "weight" in topic_config:
                     topic_weights[topic_name] = topic_config["weight"]
 
@@ -220,6 +220,8 @@ class ConstitutionStore:
             csv_contents = await asyncio.gather(*fetch_tasks, return_exceptions=True)
             
             for csv_path, content in zip(csv_paths, csv_contents):
+                this_file_users = []
+
                 if isinstance(content, Exception):
                     logger.error(f"❌ Failed to fetch {csv_path}: {content}")
                     continue
@@ -238,9 +240,10 @@ class ConstitutionStore:
                                 "username": row.get("username", "").strip(),
                                 "weight": float(row.get("weight", 1.0)),
                             }
-                            all_users.append(user_data)
-                    
-                    logger.debug(f"✅ Processed {csv_path}: users added to list")
+                            this_file_users.append(user_data)
+
+                    all_users.extend(this_file_users)
+                    logger.debug(f"✅ Processed {csv_path}, {len(this_file_users)} users added to list")
                     
                 except Exception as e:
                     logger.error(f"❌ Error parsing CSV {csv_path}: {str(e)}")
