@@ -206,9 +206,8 @@ async def get_miner_scores(
                 categories_scores[category]
             )
         else:
-            categories_scores[category] = np.ones(len(metagraph.hotkeys)) / len(
-                metagraph.hotkeys
-            )
+            # If category has no score (no interaction) then we burn
+            categories_scores[category] = np.zeros_like(categories_scores[category])
 
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
