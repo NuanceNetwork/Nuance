@@ -79,7 +79,7 @@ class ScoreCalculator:
             if topic in all_active_topics:
                 category = topic
             else:
-                category = "other"
+                continue
             
             # Get ranked score
             verified_users = await constitution_store.get_verified_users(platform=interaction.platform_type, category=category)
@@ -183,7 +183,7 @@ class ScoreCalculator:
                     / interaction_count_by_account[interaction.account_id],
                 )
 
-                if interaction_scores is None:
+                if not interaction_scores:
                     continue
 
                 # Add to node's score
