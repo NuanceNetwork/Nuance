@@ -264,17 +264,21 @@ def _tweet_to_interaction(
         interaction_type = models.InteractionType.REPLY
         post_id = tweet.get("in_reply_to_status_id")
 
-    return models.Interaction(
-        interaction_id=tweet.get("id"),
-        platform_type=models.PlatformType.TWITTER,
-        interaction_type=interaction_type,
-        account_id=tweet.get("user", {}).get("id"),
-        post_id=post_id,
-        content=tweet.get("text"),
-        created_at=datetime.datetime.strptime(
-            tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
-        ).astimezone(datetime.timezone.utc),
-        extra_data=tweet,
-        social_account=social_account if social_account else None,
-        post=post if post else None,
-    )
+    try:
+        return models.Interaction(
+            interaction_id=tweet.get("id"),
+            platform_type=models.PlatformType.TWITTER,
+            interaction_type=interaction_type,
+            account_id=tweet.get("user", {}).get("id"),
+            post_id=post_id,
+            content=tweet.get("text"),
+            created_at=datetime.datetime.strptime(
+                tweet.get("created_at"), "%a %b %d %H:%M:%S %z %Y"
+            ).astimezone(datetime.timezone.utc),
+            extra_data=tweet,
+            social_account=social_account if social_account else None,
+            post=post if post else None,
+        )
+    except Exception as e:
+        logger.error(f"Error on tweet to interaction {tweet}")
+        raise e
