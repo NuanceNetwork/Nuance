@@ -18,6 +18,7 @@ from nuance.database import (
     NodeRepository,
 )
 import nuance.models as models
+from nuance.constitution import constitution_store
 from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
@@ -445,6 +446,10 @@ class NuanceValidator:
                     tz=datetime.timezone.utc
                 ) - datetime.timedelta(days=cst.SCORING_WINDOW)
 
+                # Get constitution config
+                constitution_config = await constitution_store.get_constitution_config()
+                constitution_topics = constitution_config.get("topics", {})
+
                 # 1. Get all interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
@@ -472,12 +477,16 @@ class NuanceValidator:
                 )
 
                 # 3. Set weights for all nodes
+                owner_hotkey = self.metagraph.owner_hotkey
+                owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
+
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(cst.CATEGORIES_WEIGHTS.keys())}
+                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constitution_topics.keys())}
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
-                            categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
+                            if category in categories_scores:
+                                categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
                             
                 # Normalize scores for each category
                 for category in categories_scores:
@@ -485,26 +494,31 @@ class NuanceValidator:
                     if np.sum(categories_scores[category]) > 0:
                         categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
                     else:
-                        categories_scores[category] = np.ones(len(self.metagraph.hotkeys)) / len(self.metagraph.hotkeys)
-                        
+                        # If category has no score (no interaction) then we burn
+                        categories_scores[category] = np.zeros_like(categories_scores[category])
+                        categories_scores[category][owner_hotkey_index] = 1.0
+                    
+                    positive_score_uid = np.where(categories_scores[category] > 0)[0]
+                    logger.info(f"Weights of topic {category}: \n" + \
+                                f"Uids: {positive_score_uid} \n" + \
+                                f"Weights: {categories_scores[category][positive_score_uid]}"
+                                )
+
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
+                    scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
                 
                 scores_weights = scores.tolist()
 
                 # Burn
                 alpha_burn_weights = [0.0] * len(self.metagraph.hotkeys)
-                owner_hotkey = "5HN1QZq7MyGnutpToCZGdiabP3D339kBjKXfjb1YFaHacdta"
-                owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
                 logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
                 alpha_burn_weights[owner_hotkey_index] = 1
                 
                 # Combine weights
-                alpha_burn_ratio = 0.7
                 combined_weights = [
-                    (alpha_burn_ratio * alpha_burn_weight) + ((1 - alpha_burn_ratio) * score_weight)
+                    (cst.ALPHA_BURN_RATIO * alpha_burn_weight) + ((1 - cst.ALPHA_BURN_RATIO) * score_weight)
                     for alpha_burn_weight, score_weight in zip(alpha_burn_weights, scores_weights)
                 ]
 

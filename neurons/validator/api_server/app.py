@@ -22,6 +22,7 @@ from nuance.database import (
     SocialAccountRepository,
 )
 import nuance.models as models
+from nuance.constitution import constitution_store
 from nuance.utils.logging import logger
 from nuance.utils.bittensor_utils import get_metagraph
 from nuance.settings import settings
@@ -162,6 +163,10 @@ async def get_miner_scores(
         days=14
     )
 
+    # Get constitution config
+    constitution_config = await constitution_store.get_constitution_config()
+    constitution_topics = constitution_config.get("topics", {})
+
     # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
     recent_interactions = await interaction_repo.get_recent_interactions(
         cutoff_date=cutoff_date, processing_status=models.ProcessingStatus.ACCEPTED
@@ -186,7 +191,7 @@ async def get_miner_scores(
     # We create a score array for each category
     categories_scores = {
         category: np.zeros(len(metagraph.hotkeys))
-        for category in list(cst.CATEGORIES_WEIGHTS.keys())
+        for category in list(constitution_topics.keys())
     }
     for hotkey, scores in node_scores.items():
         if hotkey in metagraph.hotkeys:
@@ -208,7 +213,7 @@ async def get_miner_scores(
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
     for category in categories_scores:
-        scores += categories_scores[category] * cst.CATEGORIES_WEIGHTS[category]
+        scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
 
     miner_scores = []
     for hotkey in metagraph.hotkeys:

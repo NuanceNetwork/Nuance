@@ -26,8 +26,8 @@ The validator implements this incentive mechanism through several key steps:
 
 5. **Scoring**: Interactions are scored based on multiple factors:
    - **Interaction Type**: Replies is the only supported interaction type at the moment
-   - **Recency**: Only interactions within the last 14 days are considered, with newer interactions weighted higher
-   - **Account Influence**: Higher scores for interactions from accounts with more followers
+   - **Recency**: Only interactions within the last 7 days are considered, with newer interactions weighted higher
+   - **Account Influence**: Higher scores for interactions from accounts with more weights
    - **Content Categories**: Scores are weighted by topic categories, allowing emphasis on specific subjects
 
 6. **Score Aggregation**: Final scores are calculated by:
