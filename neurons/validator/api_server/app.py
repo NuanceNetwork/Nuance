@@ -158,16 +158,16 @@ async def get_miner_scores(
     Get scores for all miners.
     """
     logger.info("Getting scores for all miners")
-    # Get cutoff date (14 days ago)
+    # Get cutoff date
     cutoff_date = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
-        days=14
+        days=cst.SCORING_WINDOW
     )
 
     # Get constitution config
     constitution_config = await constitution_store.get_constitution_config()
     constitution_topics = constitution_config.get("topics", {})
 
-    # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
+    # 1. Get all interactions from the last window that are PROCESSED and ACCEPTED
     recent_interactions = await interaction_repo.get_recent_interactions(
         cutoff_date=cutoff_date, processing_status=models.ProcessingStatus.ACCEPTED
     )
@@ -213,7 +213,9 @@ async def get_miner_scores(
     # Weighted sum of categories
     scores = np.zeros(len(metagraph.hotkeys))
     for category in categories_scores:
-        scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
+        scores += categories_scores[category] * constitution_topics.get(
+            category, {}
+        ).get("weight", 0.0)
 
     miner_scores = []
     for hotkey in metagraph.hotkeys:
@@ -502,8 +504,13 @@ async def get_recent_posts(
             if only_scored:
                 skip_post = False
                 for interaction in interactions:
-                    if interaction.processing_status != models.ProcessingStatus.ACCEPTED:
-                        logger.debug(f"Interaction {interaction.interaction_id} is not accepted, skipping post {post.post_id}")
+                    if (
+                        interaction.processing_status
+                        != models.ProcessingStatus.ACCEPTED
+                    ):
+                        logger.debug(
+                            f"Interaction {interaction.interaction_id} is not accepted, skipping post {post.post_id}"
+                        )
                         skip_post = True
                         break
 
@@ -866,12 +873,13 @@ async def check_nuance(
 
     return is_nuanced
 
+
 @app.post("/topic/check", response_model=dict)
 @limiter.limit("2/minute")
 async def check_topic(
-    request: Request, 
-    content: Annotated[str, Body(..., embed=True)], 
-    topic: Annotated[str, Body(..., embed=True)], 
+    request: Request,
+    content: Annotated[str, Body(..., embed=True)],
+    topic: Annotated[str, Body(..., embed=True)],
     topic_checker: Annotated[
         Callable[[str, str], Awaitable[bool]], Depends(get_topic_checker)
     ],
@@ -882,9 +890,10 @@ async def check_topic(
     is_this_topic, is_valid_topic = await topic_checker(content=content, topic=topic)
 
     return {
-        "is_this_topic": is_this_topic, 
-        "is_valid_topic": is_valid_topic, 
+        "is_this_topic": is_this_topic,
+        "is_valid_topic": is_valid_topic,
     }
+
 
 @app.get("/scalar", include_in_schema=False)
 async def scalar_html():
@@ -893,6 +902,7 @@ async def scalar_html():
         title=app.title,
         show_sidebar=True,
     )
+
 
 async def run_api_server(port: int, shutdown_event: asyncio.Event) -> None:
     """
