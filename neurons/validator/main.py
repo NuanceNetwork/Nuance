@@ -460,8 +460,6 @@ class NuanceValidator:
 
                 if not recent_interactions:
                     logger.info("No recent interactions found for scoring")
-                    await asyncio.sleep(cst.EPOCH_LENGTH)
-                    continue
 
                 logger.info(
                     f"Found {len(recent_interactions)} recent interactions for scoring"
