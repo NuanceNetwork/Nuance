@@ -203,7 +203,7 @@ async def queue_submission(
     try:
         await submission_queue.put(
             {
-                "hotkey": sender_hotkey,
+                "hotkey": submission_data.node_hotkey or sender_hotkey,
                 "platform": submission_data.platform.value,
                 "account_id": submission_data.account_id,
                 "verification_post_id": submission_data.verification_post_id,

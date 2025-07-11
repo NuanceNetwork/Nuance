@@ -1,5 +1,6 @@
 # neurons/validator/submission_server/models.py
 import time
+from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 from nuance.models import PlatformType
 
@@ -12,6 +13,8 @@ class SubmissionData(BaseModel):
     verification_post_id: str
     post_id: str = ""
     interaction_id: str = ""
+
+    node_hotkey: Optional[str] = None # If this is provided, post/ interaction belong to node_hotkey instead of sender 's hotkey  
     
     @model_validator(mode='after')
     def validate_submission_data(self):
