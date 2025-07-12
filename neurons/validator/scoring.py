@@ -177,17 +177,30 @@ class ScoreCalculator:
         
         recent_posts = posts_from_verified_users
 
-        work_count_by_account: dict[str, int] = {}  # {account_id: count}
+        # Calculate base score for each accounts by how many engagements (interactions or posts from verified accounts) they made
+        engagement_count_by_account: dict[str, int] = {}  # {account_id: count}
+
         # Count interactions by account
         for interaction in recent_interactions:
-            work_count_by_account[interaction.account_id] = (
-                work_count_by_account.get(interaction.account_id, 0) + 1
+            engagement_count_by_account[interaction.account_id] = (
+                engagement_count_by_account.get(interaction.account_id, 0) + 1
             )
+
         # Count post by account
         for post in recent_posts:
-            work_count_by_account[post.account_id] = (
-                work_count_by_account.get(post.account_id, 0) + 1
+            engagement_count_by_account[post.account_id] = (
+                engagement_count_by_account.get(post.account_id, 0) + 1
             )
+
+        base_score_for_account: dict[str, float] = {}
+        for account_id, count in engagement_count_by_account.items():
+            score = (
+                1.0 if count == 1 else
+                1.7 if count == 2 else
+                2.0 if count >= 3 else
+                0.0
+            )
+            base_score_for_account[account_id] = score
 
         # Process each interaction
         for interaction in recent_interactions:
@@ -241,8 +254,7 @@ class ScoreCalculator:
                 interaction_scores = await self.calculate_interaction_score(
                     interaction=interaction,
                     cutoff_date=cutoff_date,
-                    interaction_base_score=2.0
-                    / work_count_by_account[interaction.account_id],
+                    interaction_base_score=base_score_for_account[interaction],
                 )
 
                 if not interaction_scores:
@@ -287,8 +299,7 @@ class ScoreCalculator:
                 post_scores = await self.calculate_post_score(
                     post=post,
                     cutoff_date=cutoff_date,
-                    post_base_score=2.0
-                    / work_count_by_account[interaction.account_id],
+                    post_base_score=base_score_for_account[interaction],
                 )
 
                 if not post_scores:
