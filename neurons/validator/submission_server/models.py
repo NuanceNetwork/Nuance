@@ -10,7 +10,7 @@ class SubmissionData(BaseModel):
     platform: PlatformType
     account_id: str = ""
     username: str = ""
-    verification_post_id: str
+    verification_post_id: Optional[str] = None # Alternative, miner can verify by hastag on the post
     post_id: str = ""
     interaction_id: str = ""
 

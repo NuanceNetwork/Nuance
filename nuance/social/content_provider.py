@@ -72,7 +72,27 @@ class SocialContentProvider:
         except Exception as e:
             logger.error(f"Error verifying account: {str(e)}")
             return None, str(e)
-    
+        
+    async def verifiy_post(
+        self,
+        post_id: str,
+        platform: models.PlatformType,
+        node: models.Node
+    ) -> tuple[models.Post, Optional[str]]:
+        """Verify a post on platform_type."""
+        try:
+            discovery = self._get_discovery(platform)
+
+            post, error = await discovery.verify_post(
+                post_id=post_id,
+                node=node,
+            )
+            return post, error
+        except Exception as e:
+            logger.error(f"Error verifying post: {str(e)}")
+            return None, str(e)
+
+
     async def discover_contents(self, social_account: models.SocialAccount) -> DiscoveredContent:
         """
         Discover new content (posts and interactions) for an account.

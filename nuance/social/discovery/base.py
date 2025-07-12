@@ -34,3 +34,7 @@ class BaseDiscoveryStrategy(ABC, Generic[T]):
     @abstractmethod
     async def verify_account(self, *args, **kwargs) -> bool:
         pass
+
+    @abstractmethod
+    async def verify_post(self, *args, **kwargs) -> bool:
+        pass
