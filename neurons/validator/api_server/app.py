@@ -167,20 +167,37 @@ async def get_miner_scores(
     constitution_config = await constitution_store.get_constitution_config()
     constitution_topics = constitution_config.get("topics", {})
 
-    # 1. Get all interactions from the last window that are PROCESSED and ACCEPTED
-    recent_interactions = await interaction_repo.get_recent_interactions(
-        cutoff_date=cutoff_date, processing_status=models.ProcessingStatus.ACCEPTED
+    # 1. Get all posts and interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
+    recent_interactions = (
+        await interaction_repo.get_recent_interactions(
+            cutoff_date=cutoff_date,
+            processing_status=models.ProcessingStatus.ACCEPTED
+        )
     )
 
     if not recent_interactions:
         logger.info("No recent interactions found for scoring")
-        return MinerScoresResponse(miner_scores=[])
 
-    logger.info(f"Found {len(recent_interactions)} recent interactions for scoring")
+    logger.info(
+        f"Found {len(recent_interactions)} recent interactions for scoring"
+    )
+
+    recent_posts = await post_repo.get_recent_posts(
+        cutoff_date=cutoff_date,
+        processing_status=models.ProcessingStatus.ACCEPTED
+    )
+
+    if not recent_posts:
+        logger.info("No recent posts found for scoring")
+    
+    logger.info(
+        f"Found {len(recent_posts)} recent posts for scoring"
+    )
 
     # 2. Calculate scores for all miners (keyed by hotkey)
     node_scores: dict[str, dict[str, float]] = {}  # {hotkey: {category: score}}
-    node_scores = await score_calculator.aggregate_interaction_scores(
+    node_scores = await score_calculator.aggregate_scores(
+        recent_posts=recent_posts,
         recent_interactions=recent_interactions,
         cutoff_date=cutoff_date,
         post_repository=post_repo,
