@@ -28,7 +28,7 @@ class ScoreCalculator:
         interaction_base_score: float = 1.0,
     ) -> Optional[dict[str, float]]:
         """
-        Calculate score for an interaction based on type, recency, and engagement weight.
+        Calculate score for an interaction based on type and engagement weight.
 
         Args:
             interaction: The interaction to score (must have .post and .social_account set)
@@ -41,9 +41,7 @@ class ScoreCalculator:
         logger.debug(
             f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} from account {interaction.account_id}"
         )
-
-        interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
-        
+       
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
             return None
@@ -51,16 +49,8 @@ class ScoreCalculator:
         # Base type weights
         base_score = models.INTERACTION_TYPE_WEIGHTS.get(interaction.interaction_type, 0.5) * interaction_base_score
 
-        # Recency factor - newer interactions get higher scores
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        age_days = (now - interaction.created_at).days
-        max_age = cst.SCORING_WINDOW  # Max age in days
-
-        # Linear decay from 1.0 (today) to 0.1
-        recency_factor = max(0.1, 1.0 - (0.9 * age_days / max_age))
-
         # Base calculated score (without user ranking and category multiplier)
-        calculated_score = base_score * recency_factor
+        calculated_score = base_score
 
         # Get post topics to determine scoring categories
         post_topics = interaction.post.topics if interaction.post.topics else ["other"]
@@ -100,7 +90,7 @@ class ScoreCalculator:
         post_base_score: float = 1.0,
     ) -> Optional[dict[str, float]]:
         """
-        Calculate score for a interaction based on recency, and engagement weight.
+        Calculate score for a interaction based on engagement weight.
 
         Args:
             post: The interaction to score
@@ -114,8 +104,6 @@ class ScoreCalculator:
             f"Calculating score for post {post.post_id} with base score {post_base_score} from account {post.account_id}"
         )
 
-        post.created_at = post.created_at.replace(tzinfo=datetime.timezone.utc)
-        
         # Skip if the post is too old
         if post.created_at < cutoff_date:
             return None
@@ -124,16 +112,8 @@ class ScoreCalculator:
         # One post have same base score as one QRT
         base_score = models.INTERACTION_TYPE_WEIGHTS.get(models.InteractionType.QUOTE) * post_base_score
 
-        # Recency factor - newer posts get higher scores
-        now = datetime.datetime.now(tz=datetime.timezone.utc)
-        age_days = (now - post.created_at).days
-        max_age = cst.SCORING_WINDOW  # Max age in days
-
-        # Linear decay from 1.0 (today) to 0.1
-        recency_factor = max(0.1, 1.0 - (0.9 * age_days / max_age))
-
         # Base calculated score (without user ranking and category multiplier)
-        calculated_score = base_score * recency_factor
+        calculated_score = base_score
 
         # Get post topics to determine scoring categories
         post_topics = post.topics if post.topics else ["other"]
