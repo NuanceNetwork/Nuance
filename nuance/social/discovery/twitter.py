@@ -207,14 +207,14 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             social_account = _twitter_user_to_social_account(raw_post.get("user"), node=node)
 
             # Post need to contain Nuance hashtag, e.g: Nuance123, with 123 match node 's current UID 
-            pattern = re.compile(r'#Nuance([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])')
+            pattern = re.compile(r'#Nuance(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])')
             hashtag_match = pattern.search(post.content)
             assert hashtag_match is not None, f"Tweet with ID: {post_id} does not contain hastag to verify!"
             
             # Node UID must match its hotkey
             found_node_uid = int(hashtag_match.group(1))
             metagraph = await get_metagraph()
-            assert node.node_hotkey in metagraph.hotkeys and found_node_uid == metagraph.hotkeys.index(node.node_hotkey), f"UID found in tweet {post_id} 's hastag does not match node 's UID in metagraph!"
+            assert node.node_hotkey in metagraph.hotkeys and found_node_uid == metagraph.hotkeys.index(node.node_hotkey), f"UID found in tweet {post_id} 's hastag: {found_node_uid} does not match node 's UID in metagraph: {metagraph.hotkeys.index(node.node_hotkey)}!"
 
             post.social_account = social_account
             return post, None

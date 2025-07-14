@@ -1,5 +1,6 @@
 # neurons/validator/scoring.py
 import datetime
+import traceback
 from typing import Optional
 
 import nuance.constants as cst
@@ -41,6 +42,8 @@ class ScoreCalculator:
         logger.debug(
             f"Calculating score for interaction {interaction.interaction_id} with base score {interaction_base_score} from account {interaction.account_id}"
         )
+
+        interaction.created_at = interaction.created_at.replace(tzinfo=datetime.timezone.utc)
        
         # Skip if the interaction is too old
         if interaction.created_at < cutoff_date:
@@ -90,10 +93,10 @@ class ScoreCalculator:
         post_base_score: float = 1.0,
     ) -> Optional[dict[str, float]]:
         """
-        Calculate score for a interaction based on engagement weight.
+        Calculate score for a post based on engagement weight.
 
         Args:
-            post: The interaction to score
+            post: The post to score
             cutoff_date: The date beyond which posts are not scored
             post_base_score: Base score for this post
 
@@ -103,6 +106,8 @@ class ScoreCalculator:
         logger.debug(
             f"Calculating score for post {post.post_id} with base score {post_base_score} from account {post.account_id}"
         )
+
+        post.created_at = post.created_at.replace(tzinfo=datetime.timezone.utc)
 
         # Skip if the post is too old
         if post.created_at < cutoff_date:
@@ -163,16 +168,16 @@ class ScoreCalculator:
         posts_from_verified_users: list[models.Post] = []
         
         posts_by_platform: dict[str, list[models.Post]] = {
-            platform: [] for platform in constitution_config.get("platform", {})
+            platform: [] for platform in constitution_config.get("platforms", {})
         }
         for post in recent_posts:
             if post.platform_type in posts_by_platform:
                 posts_by_platform[post.platform_type].append(post)
-
         for platform, posts_on_platform in posts_by_platform.items():
             verifed_users_on_platform = await constitution_store.get_verified_users(platform=platform)
+            verifed_user_ids_on_platform = [user["id"] for user in verifed_users_on_platform if user.get("id") is not None]
             for post in posts_on_platform:
-                if post.account_id in verifed_users_on_platform:
+                if post.account_id in verifed_user_ids_on_platform:
                     posts_from_verified_users.append(post)
         
         recent_posts = posts_from_verified_users
@@ -254,7 +259,7 @@ class ScoreCalculator:
                 interaction_scores = await self.calculate_interaction_score(
                     interaction=interaction,
                     cutoff_date=cutoff_date,
-                    interaction_base_score=base_score_for_account[interaction],
+                    interaction_base_score=base_score_for_account[interaction.account_id],
                 )
 
                 if not interaction_scores:
@@ -271,7 +276,7 @@ class ScoreCalculator:
 
             except Exception as e:
                 logger.error(
-                    f"Error scoring interaction {interaction.interaction_id}: {e}"
+                    f"Error scoring interaction {interaction.interaction_id}: {traceback.format_exc()}"
                 )
 
         # Process each post
@@ -299,7 +304,7 @@ class ScoreCalculator:
                 post_scores = await self.calculate_post_score(
                     post=post,
                     cutoff_date=cutoff_date,
-                    post_base_score=base_score_for_account[interaction],
+                    post_base_score=base_score_for_account[post.account_id],
                 )
 
                 if not post_scores:
@@ -315,7 +320,7 @@ class ScoreCalculator:
                     node_scores[miner_hotkey][category] += score
             except Exception as e:
                 logger.error(
-                    f"Error scoring post {post.post_id}: {e}"
+                    f"Error scoring post {post.post_id}: {traceback.format_exc()}"
                 )
 
         return node_scores
