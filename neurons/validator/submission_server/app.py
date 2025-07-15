@@ -91,8 +91,7 @@ def create_submission_app(
             if axon_hotkey not in metagraph.hotkeys:
                 continue
             axon_uid = metagraph.hotkeys.index(axon_hotkey)
-            # if metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
-            if True: # for testing purposes, TODO: remove this
+            if metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
                 all_validator_axons.append(axon)
 
         # Inner method to send request to a single axon
