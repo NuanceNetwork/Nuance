@@ -118,7 +118,9 @@ def create_submission_app(
         tasks = [send_request_to_axon(axon) for axon in all_validator_axons]
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
+        responses = []
         for response in responses:
+            responses.append(response)
             if isinstance(response, Exception):
                 logger.error(f"Exception occurred: {response}")
             else:
@@ -126,7 +128,8 @@ def create_submission_app(
                     logger.error(f"Error while sending to axon {response['axon']}: {response['error']}")
                 else:
                     logger.info(f"Successfully submitted to axon {response['axon']} with status {response['status']}")
-    
+
+        return "\n".join(responses)
 
     @app.post("/submit")
     async def submit_content(
