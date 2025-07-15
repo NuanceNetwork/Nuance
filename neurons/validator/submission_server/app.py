@@ -71,25 +71,8 @@ def create_submission_app(
 
     @app.post("/submit_through_node")
     async def submit_through_node(
-        platform: PlatformType,
-        node_hotkey: str,
-        account_id: str = "",
-        username: str = "",
-        post_id: str = "",
-        interaction_id: str = "",
+        submission_data: SubmissionData, 
     ):
-        """Submit data to validators 's submission servers"""
-        assert account_id or username, "Must provide either account_id or username"
-        assert post_id or (not interaction_id), "Interaction ID requires a post ID"
-
-        data = {
-            "platform": platform,
-            "account_id": account_id,
-            "username": username,
-            "post_id": post_id,
-            "interaction_id": interaction_id,
-            "node_hotkey": node_hotkey,
-        }
         metagraph: bt.Metagraph = await get_metagraph()
         wallet = await get_wallet()
         all_axons = await get_axons()
@@ -106,14 +89,14 @@ def create_submission_app(
         async def send_request_to_axon(axon: bt.AxonInfo):
             url = f"http://{axon.ip}:{axon.port}/submit"  # Update with the correct URL endpoint
             request_body_bytes, request_headers = create_request(
-                data=data,
+                data=submission_data.model_dump(),
                 sender_keypair=wallet.hotkey,
                 receiver_hotkey=axon.hotkey
             )
 
             try:
                 async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=data, headers=request_headers) as response:
+                    async with session.post(url, json=submission_data.model_dump(), headers=request_headers) as response:
                         if response.status == 200:
                             return {'axon': axon.hotkey, 'status': response.status, 'response': await response.json()}
                         else:

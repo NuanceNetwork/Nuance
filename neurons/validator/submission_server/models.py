@@ -28,6 +28,11 @@ class SubmissionData(BaseModel):
         if self.interaction_id and not self.post_id:
             raise ValueError("Interaction ID requires a post ID")
         
+        if not self.verification_post_id and not self.node_hotkey:
+            raise ValueError(
+                "Must provide either verification_post_id or node_hotkey for verification"
+            )
+        
         return self
 
 class GossipData(BaseModel):
