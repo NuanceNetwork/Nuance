@@ -182,11 +182,9 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 
             # Check if miner's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
-            # Check if the post quotes the Nuance announcement post
-            assert verification_post.extra_data["is_quote_tweet"]
+            # Check if the post quotes or reply to the Nuance announcement post
             assert (
-                verification_post.extra_data["quoted_status_id"]
-                == cst.NUANCE_ANNOUNCEMENT_POST_ID
+                verification_post.extra_data["quoted_status_id"] == cst.NUANCE_ANNOUNCEMENT_POST_ID or verification_post.extra_data["in_reply_to_status_id"] == cst.NUANCE_ANNOUNCEMENT_POST_ID
             )
             return verification_post.social_account, None
         except Exception as e:
