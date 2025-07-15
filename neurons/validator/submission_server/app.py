@@ -5,13 +5,22 @@ import time
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import aiohttp
 import bittensor as bt
 from fastapi import BackgroundTasks, Depends, FastAPI
 
-from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
+from nuance.models import PlatformType
+from nuance.utils.bittensor_utils import (
+    get_axons,
+    get_metagraph,
+    get_subtensor,
+    get_wallet,
+    is_validator,
+)
+from nuance.utils.epistula import create_request
 from nuance.utils.logging import logger
 
-from .dependencies import create_verified_dependency, create_gossip_verified_dependency
+from .dependencies import create_gossip_verified_dependency, create_verified_dependency
 from .gossip import GossipHandler
 from .models import SubmissionData
 from .rate_limiter import RateLimiter
@@ -59,6 +68,73 @@ def create_submission_app(
 
     # Create app
     app = FastAPI(title="Nuance Submission Server", lifespan=lifespan)
+
+    @app.post("/submit_through_node")
+    async def submit_through_node(
+        platform: PlatformType,
+        node_hotkey: str,
+        account_id: str = "",
+        username: str = "",
+        post_id: str = "",
+        interaction_id: str = "",
+    ):
+        """Submit data to validators 's submission servers"""
+        assert account_id or username, "Must provide either account_id or username"
+        assert post_id or (not interaction_id), "Interaction ID requires a post ID"
+
+        data = {
+            "platform": platform,
+            "account_id": account_id,
+            "username": username,
+            "post_id": post_id,
+            "interaction_id": interaction_id,
+            "node_hotkey": node_hotkey,
+        }
+        metagraph: bt.Metagraph = await get_metagraph()
+        wallet = await get_wallet()
+        all_axons = await get_axons()
+        all_validator_axons = []
+        for axon in all_axons:
+            axon_hotkey = axon.hotkey
+            if axon_hotkey not in metagraph.hotkeys:
+                continue
+            axon_uid = metagraph.hotkeys.index(axon_hotkey)
+            if metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
+                all_validator_axons.append(axon)
+
+        # Inner method to send request to a single axon
+        async def send_request_to_axon(axon: bt.AxonInfo):
+            url = f"http://{axon.ip}:{axon.port}/submit"  # Update with the correct URL endpoint
+            request_body_bytes, request_headers = create_request(
+                data=data,
+                sender_keypair=wallet.hotkey,
+                receiver_hotkey=axon.hotkey
+            )
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=data, headers=request_headers) as response:
+                        if response.status == 200:
+                            return {'axon': axon.hotkey, 'status': response.status, 'response': await response.json()}
+                        else:
+                            error_message = await response.text()  # Capture response message for error details
+                            return {'axon': axon.hotkey, 'status': response.status, 'error': error_message}
+            except Exception as e:
+                return {'axon': axon.hotkey, 'status': 'error', 'error': str(e)}
+
+        # Send requests concurrently
+        tasks = [send_request_to_axon(axon) for axon in all_validator_axons]
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for response in responses:
+            if isinstance(response, Exception):
+                logger.error(f"Exception occurred: {response}")
+            else:
+                if "error" in response:
+                    logger.error(f"Error while sending to axon {response['axon']}: {response['error']}")
+                else:
+                    logger.info(f"Successfully submitted to axon {response['axon']} with status {response['status']}")
+    
 
     @app.post("/submit")
     async def submit_content(
