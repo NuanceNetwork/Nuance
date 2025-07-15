@@ -130,7 +130,7 @@ def create_submission_app(
                 else:
                     logger.info(f"Successfully submitted to axon {response['axon']} with status {response['status']}")
 
-        return "\n".join([str(response) for response in responses])
+        return [str(response) for response in responses]
 
     @app.post("/submit")
     async def submit_content(
