@@ -116,6 +116,7 @@ def create_submission_app(
 
         # Send requests concurrently
         tasks = [send_request_to_axon(axon) for axon in all_validator_axons]
+        logger.info(f"Submitting to {len(tasks)} validators")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
         responses = []
