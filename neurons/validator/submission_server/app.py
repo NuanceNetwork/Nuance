@@ -76,8 +76,8 @@ def create_submission_app(
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-    @limiter.limit("1 / 10 minutes")
     @app.post("/submit_through_node")
+    @limiter.limit("1 / 10 minutes")
     async def submit_through_node(
         submission_data: SubmissionData, 
     ):
