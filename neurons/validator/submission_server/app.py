@@ -8,6 +8,9 @@ from typing import Annotated
 import aiohttp
 import bittensor as bt
 from fastapi import BackgroundTasks, Depends, FastAPI
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 from nuance.models import PlatformType
 from nuance.utils.bittensor_utils import (
@@ -42,6 +45,8 @@ def create_submission_app(
     # Initialize components
     rate_limiter = RateLimiter()
     gossip_handler = GossipHandler()
+    # Register rate limiter
+    limiter = Limiter(key_func=get_remote_address)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -68,7 +73,10 @@ def create_submission_app(
 
     # Create app
     app = FastAPI(title="Nuance Submission Server", lifespan=lifespan)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
+    @limiter.limit("1 / 10 minutes")
     @app.post("/submit_through_node")
     async def submit_through_node(
         submission_data: SubmissionData, 
