@@ -120,9 +120,7 @@ def create_submission_app(
         logger.info(f"Submitting to {len(tasks)} validators")
         responses = await asyncio.gather(*tasks, return_exceptions=True)
 
-        responses = []
         for response in responses:
-            responses.append(response)
             if isinstance(response, Exception):
                 logger.error(f"Exception occurred: {response}")
             else:
