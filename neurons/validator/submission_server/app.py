@@ -7,7 +7,7 @@ from typing import Annotated
 
 import aiohttp
 import bittensor as bt
-from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Request
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -79,6 +79,7 @@ def create_submission_app(
     @app.post("/submit_through_node")
     @limiter.limit("1 / 10 minutes")
     async def submit_through_node(
+        request: Request,
         submission_data: SubmissionData, 
     ):
         metagraph: bt.Metagraph = await get_metagraph()
