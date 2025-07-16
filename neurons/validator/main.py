@@ -141,45 +141,71 @@ class NuanceValidator:
                 await self.node_repository.upsert(node)
 
                 # Verify the account
-                node_uid = self.metagraph.hotkeys.index(node_hotkey)
-                commit = models.Commit(
-                    uid=node_uid,
-                    node_hotkey=node_hotkey,
-                    node_netuid=settings.NETUID,
-                    platform=platform,
-                    account_id=account_id if account_id else None,
-                    username=username if username else None,
-                    verification_post_id=verification_post_id
-                )
-                account, error = await self.social.verify_account(commit, node)
-                if not account:
-                    logger.warning(
-                        f"Account {commit.username} is not verified: {error}"
+                account = None
+                account_verified = False
+                if verification_post_id:
+                    node_uid = self.metagraph.hotkeys.index(node_hotkey)
+                    commit = models.Commit(
+                        uid=node_uid,
+                        node_hotkey=node_hotkey,
+                        node_netuid=settings.NETUID,
+                        platform=platform,
+                        account_id=account_id if account_id else None,
+                        username=username if username else None,
+                        verification_post_id=verification_post_id
                     )
-                    continue
-
-                # Upsert account to database
-                await self.account_repository.upsert(account)
+                    account, error = await self.social.verify_account(commit, node)
+                    if not account:
+                        logger.warning(
+                            f"Account {commit.username} is not verified: {error}"
+                        )
+                        continue
+                    
+                    account_verified = True
+                    # Upsert account to database
+                    await self.account_repository.upsert(account)
 
                 # Process post if provided
                 if post_id:
-                    existing_post = await self.post_repository.get_by(
-                        platform_type=platform,
-                        post_id=post_id
-                    )
-                    
-                    if not existing_post:
-                        # Fetch post using social provider
-                        post = await self.social.get_post(platform, post_id)
+                    # If account is verified, we process as normal
+                    if account_verified:
+                        existing_post = await self.post_repository.get_by(
+                            platform_type=platform,
+                            post_id=post_id
+                        )
                         
-                        if post is not None:                            
-                            # Queue for processing
-                            await self.post_queue.put(post)
-                            logger.info(f"Queued post {post_id} for processing")
+                        if not existing_post:
+                            # Fetch post using social provider
+                            post = await self.social.get_post(platform, post_id)
+                            
+                            if not post:
+                                logger.warning(f"Could not fetch post {post_id}")
                         else:
-                            logger.warning(f"Could not fetch post {post_id}")
+                            logger.debug(f"Post {post_id} already exists")
+                    # If account is not verified, we verify the post itself and claim node 's ownership to the account
                     else:
-                        logger.debug(f"Post {post_id} already exists")
+                        if node_hotkey not in self.metagraph.hotkeys:
+                            continue
+                        node = models.Node(
+                            node_hotkey=node_hotkey,
+                            node_netuid=settings.NETUID
+                        )
+                        post, error = await self.social.verifiy_post(post_id, platform, node)
+
+                        if not post:
+                            logger.warning(
+                                f"Post {post_id} on platforn {platform} is not verified: {error}"
+                            )
+                            continue
+                        
+                        account_verified = True
+                        account = post.social_account
+                        # Upsert account to database
+                        await self.account_repository.upsert(account)
+
+                    # Queue for processing
+                    await self.post_queue.put(post)
+                    logger.info(f"Queued post {post_id} for processing")
 
                 # Process interaction if provided (requires post_id)
                 if interaction_id:
@@ -450,7 +476,7 @@ class NuanceValidator:
                 constitution_config = await constitution_store.get_constitution_config()
                 constitution_topics = constitution_config.get("topics", {})
 
-                # 1. Get all interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
+                # 1. Get all posts and interactions from the last SCORING_WINDOW days that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
                         cutoff_date=cutoff_date,
@@ -465,8 +491,21 @@ class NuanceValidator:
                     f"Found {len(recent_interactions)} recent interactions for scoring"
                 )
 
+                recent_posts = await self.post_repository.get_recent_posts(
+                    cutoff_date=cutoff_date,
+                    processing_status=models.ProcessingStatus.ACCEPTED
+                )
+
+                if not recent_posts:
+                    logger.info("No recent posts found for scoring")
+                
+                logger.info(
+                    f"Found {len(recent_posts)} recent posts for scoring"
+                )
+
                 # 2. Calculate scores for all miners (use ScoreCalculator)
-                node_scores = await self.score_calculator.aggregate_interaction_scores(
+                node_scores = await self.score_calculator.aggregate_scores(
+                    recent_posts=recent_posts,
                     recent_interactions=recent_interactions,
                     cutoff_date=cutoff_date,
                     post_repository=self.post_repository,

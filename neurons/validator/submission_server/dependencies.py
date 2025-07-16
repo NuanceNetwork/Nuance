@@ -65,7 +65,7 @@ def create_verified_dependency(
                 raise HTTPException(403, f"Invalid request: {error}")
             
             # Check if validator required
-            if require_validator and not is_validator(sender_hotkey, metagraph):
+            if require_validator and not await is_validator(sender_hotkey, metagraph):
                 raise HTTPException(403, "Only validators can access this endpoint")
             
             # Check UUID

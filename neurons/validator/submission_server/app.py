@@ -5,13 +5,25 @@ import time
 from contextlib import asynccontextmanager
 from typing import Annotated
 
+import aiohttp
 import bittensor as bt
-from fastapi import BackgroundTasks, Depends, FastAPI
+from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Request
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
-from nuance.utils.bittensor_utils import get_metagraph, get_wallet, is_validator
+from nuance.models import PlatformType
+from nuance.utils.bittensor_utils import (
+    get_axons,
+    get_metagraph,
+    get_subtensor,
+    get_wallet,
+    is_validator,
+)
+from nuance.utils.epistula import create_request
 from nuance.utils.logging import logger
 
-from .dependencies import create_verified_dependency, create_gossip_verified_dependency
+from .dependencies import create_gossip_verified_dependency, create_verified_dependency
 from .gossip import GossipHandler
 from .models import SubmissionData
 from .rate_limiter import RateLimiter
@@ -33,6 +45,8 @@ def create_submission_app(
     # Initialize components
     rate_limiter = RateLimiter()
     gossip_handler = GossipHandler()
+    # Register rate limiter
+    limiter = Limiter(key_func=get_remote_address)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -59,6 +73,63 @@ def create_submission_app(
 
     # Create app
     app = FastAPI(title="Nuance Submission Server", lifespan=lifespan)
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+    @app.post("/submit_through_node")
+    @limiter.limit("1 / 10 minutes")
+    async def submit_through_node(
+        request: Request,
+        submission_data: SubmissionData, 
+    ):
+        metagraph: bt.Metagraph = await get_metagraph()
+        wallet = await get_wallet()
+        all_axons = await get_axons()
+        all_validator_axons = []
+        for axon in all_axons:
+            axon_hotkey = axon.hotkey
+            if axon_hotkey not in metagraph.hotkeys:
+                continue
+            axon_uid = metagraph.hotkeys.index(axon_hotkey)
+            if metagraph.validator_permit[axon_uid] and axon.ip != "0.0.0.0":
+                all_validator_axons.append(axon)
+
+        # Inner method to send request to a single axon
+        async def send_request_to_axon(axon: bt.AxonInfo):
+            url = f"http://{axon.ip}:{axon.port}/submit"  # Update with the correct URL endpoint
+            request_body_bytes, request_headers = create_request(
+                data=submission_data.model_dump(),
+                sender_keypair=wallet.hotkey,
+                receiver_hotkey=axon.hotkey
+            )
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=submission_data.model_dump(), headers=request_headers) as response:
+                        if response.status == 200:
+                            return {'axon': axon.hotkey, 'status': response.status, 'response': await response.json()}
+                        else:
+                            error_message = await response.text()  # Capture response message for error details
+                            return {'axon': axon.hotkey, 'status': response.status, 'error': error_message}
+            except Exception as e:
+                return {'axon': axon.hotkey, 'status': 'error', 'error': str(e)}
+
+        # Send requests concurrently
+        tasks = [send_request_to_axon(axon) for axon in all_validator_axons]
+        logger.info(f"Submitting to {len(tasks)} validators")
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+        logger.info(f"Got {len(responses)} responses")
+        for response in responses:
+            if isinstance(response, Exception):
+                logger.error(f"Exception occurred: {response}")
+            else:
+                if "error" in response:
+                    logger.error(f"Error while sending to axon {response['axon']}: {response['error']}")
+                else:
+                    logger.info(f"Successfully submitted to axon {response['axon']} with status {response['status']}")
+
+        return [str(response) for response in responses]
 
     @app.post("/submit")
     async def submit_content(
@@ -203,7 +274,7 @@ async def queue_submission(
     try:
         await submission_queue.put(
             {
-                "hotkey": sender_hotkey,
+                "hotkey": submission_data.node_hotkey or sender_hotkey,
                 "platform": submission_data.platform.value,
                 "account_id": submission_data.account_id,
                 "verification_post_id": submission_data.verification_post_id,

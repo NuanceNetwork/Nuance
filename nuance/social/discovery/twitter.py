@@ -1,4 +1,5 @@
 # nuance/social/discovery/twitter.py
+import re
 import asyncio
 import datetime
 from typing import Optional
@@ -6,6 +7,7 @@ import traceback
 
 import nuance.constants as cst
 import nuance.models as models
+from nuance.utils.bittensor_utils import get_metagraph
 from nuance.utils.logging import logger
 from nuance.social.discovery.base import BaseDiscoveryStrategy
 from nuance.social.platforms.twitter import TwitterPlatform
@@ -180,17 +182,45 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 
             # Check if miner's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
-            # Check if the post quotes the Nuance announcement post
-            assert verification_post.extra_data["is_quote_tweet"]
-            assert (
-                verification_post.extra_data["quoted_status_id"]
-                == cst.NUANCE_ANNOUNCEMENT_POST_ID
-            )
+            # Check if the post quotes or reply to any of Nuance 's account 's posts
+            interacted_post_id = verification_post.extra_data["quoted_status_id"] or verification_post.extra_data["in_reply_to_status_id"]
+            assert interacted_post_id
+            interacted_post = await self.get_post(interacted_post_id)
+            assert interacted_post.social_account.account_id == cst.NUANCE_SOCIAL_ACCOUNT_ID
+            
             return verification_post.social_account, None
         except Exception as e:
             identifier = username or account_id or "unknown"
             logger.error(
                 f"❌ Error verifying account {identifier} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
+            )
+            return None, str(e)
+        
+    async def verify_post(
+        self,
+        post_id: str,
+        node: models.Node,
+    ):
+        try:
+            raw_post = await self.platform.get_post(post_id)
+            post = _tweet_to_post(raw_post)
+            social_account = _twitter_user_to_social_account(raw_post.get("user"), node=node)
+
+            # Post need to contain Nuance hashtag, e.g: Nuance123, with 123 match node 's current UID 
+            pattern = re.compile(r'#Nuance(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])')
+            hashtag_match = pattern.search(post.content)
+            assert hashtag_match is not None, f"Tweet with ID: {post_id} does not contain hastag to verify!"
+            
+            # Node UID must match its hotkey
+            found_node_uid = int(hashtag_match.group(1))
+            metagraph = await get_metagraph()
+            assert node.node_hotkey in metagraph.hotkeys and found_node_uid == metagraph.hotkeys.index(node.node_hotkey), f"UID found in tweet {post_id} 's hastag: {found_node_uid} does not match node 's UID in metagraph: {metagraph.hotkeys.index(node.node_hotkey)}!"
+
+            post.social_account = social_account
+            return post, None
+        except Exception as e:
+            logger.error(
+                f"❌ Error verifying post {post_id} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
             return None, str(e)
 

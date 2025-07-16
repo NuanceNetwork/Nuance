@@ -102,7 +102,7 @@ class ConstitutionStore:
             config_content = await self._fetch_raw_content_from_relative_path(self.constitution_config_file_name)
             config_data = json.loads(config_content)
             
-            logger.info("✅ Constitution config loaded")
+            logger.debug("✅ Constitution config loaded")
             return config_data
 
         except Exception:
@@ -144,7 +144,7 @@ class ConstitutionStore:
                     else:
                         logger.error(f"❌ Failed to fetch prompt for topic {topic_name}: {content}")
 
-            logger.info(f"✅ Topic prompts loaded: {len(topic_prompts)} topics")
+            logger.debug(f"✅ Topic prompts loaded: {len(topic_prompts)} topics")
             return topic_prompts
 
         except Exception:
@@ -249,7 +249,7 @@ class ConstitutionStore:
                     logger.error(f"❌ Error parsing CSV {csv_path}: {str(e)}")
                     continue
 
-            logger.info(f"✅ Loaded {len(all_users)} verified users for platform '{platform}', category '{category}'")
+            logger.debug(f"✅ Loaded {len(all_users)} verified users for platform '{platform}', category '{category}'")
             return all_users
 
         except Exception:

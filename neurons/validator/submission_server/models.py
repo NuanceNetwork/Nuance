@@ -1,5 +1,6 @@
 # neurons/validator/submission_server/models.py
 import time
+from typing import Optional
 from pydantic import BaseModel, Field, model_validator
 from nuance.models import PlatformType
 
@@ -9,9 +10,11 @@ class SubmissionData(BaseModel):
     platform: PlatformType
     account_id: str = ""
     username: str = ""
-    verification_post_id: str
+    verification_post_id: Optional[str] = None # Alternative, miner can verify by hastag on the post
     post_id: str = ""
     interaction_id: str = ""
+
+    node_hotkey: Optional[str] = None # If this is provided, post/ interaction belong to node_hotkey instead of sender 's hotkey  
     
     @model_validator(mode='after')
     def validate_submission_data(self):
@@ -24,6 +27,11 @@ class SubmissionData(BaseModel):
         # Interaction ID requires a post ID
         if self.interaction_id and not self.post_id:
             raise ValueError("Interaction ID requires a post ID")
+        
+        if not self.verification_post_id and not self.node_hotkey:
+            raise ValueError(
+                "Must provide either verification_post_id or node_hotkey for verification"
+            )
         
         return self
 
