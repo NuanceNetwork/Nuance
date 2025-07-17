@@ -117,7 +117,11 @@ async def get_miner_stats(
             post_interaction_counts = 0
 
             if only_count_accepted:
-                interactions = await interaction_repo.find_many(
+                cutoff_date = datetime.datetime.now(
+                    tz=datetime.timezone.utc
+                ) - datetime.timedelta(days=cst.SCORING_WINDOW)
+                interactions = await interaction_repo.get_recent_interactions(
+                    cutoff_date=cutoff_date,
                     platform_type=platform_type,
                     post_id=post.post_id,
                     processing_status=models.ProcessingStatus.ACCEPTED,
@@ -471,11 +475,11 @@ async def get_recent_posts(
     )
 
     try:
-        # If cutoff_date is not provided, use 14 days ago
+        # If cutoff_date is not provided, use cst.SCORING_WINDOW days ago
         if cutoff_date is None:
             cutoff_date = (
                 datetime.datetime.now(tz=datetime.timezone.utc)
-                - datetime.timedelta(days=14)
+                - datetime.timedelta(days=cst.SCORING_WINDOW)
             ).isoformat()
 
         # Parse the cutoff_date string to a datetime object
@@ -712,11 +716,11 @@ async def get_recent_interactions(
     )
 
     try:
-        # If cutoff_date is not provided, use 14 days ago
+        # If cutoff_date is not provided, use cst.SCORING_WINDOW days ago
         if cutoff_date is None:
             cutoff_date = (
                 datetime.datetime.now(tz=datetime.timezone.utc)
-                - datetime.timedelta(days=14)
+                - datetime.timedelta(days=cst.SCORING_WINDOW)
             ).isoformat()
 
         # Parse the cutoff_date string to a datetime object
