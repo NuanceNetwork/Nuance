@@ -8,6 +8,7 @@ from typing import Annotated
 import aiohttp
 import bittensor as bt
 from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -73,6 +74,21 @@ def create_submission_app(
 
     # Create app
     app = FastAPI(title="Nuance Submission Server", lifespan=lifespan)
+
+    app.add_middleware(
+        CORSMiddleware,
+        # Origins that should be permitted to make cross-origin requests
+        allow_origins=[
+            "http://localhost:5173",  # Local development server
+            "https://www.nuance.info",  # Production domain
+            "https://www.docs.nuance.info/",  # Documentation domain
+            "https://docs.nuance.info",  # Documentation domain without www
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],  # Allows all methods
+        allow_headers=["*"],  # Allows all headers
+    )
+
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

@@ -1,50 +1,49 @@
 # neurons/validator/api_server/app.py
+import argparse
 import asyncio
 import datetime
 from typing import Annotated, Awaitable, Callable
 
+import aiohttp
 import bittensor as bt
+import numpy as np
+import uvicorn
 from fastapi import Body, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-import numpy as np
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-import argparse
-import uvicorn
 from scalar_fastapi import get_scalar_api_reference
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
 import nuance.constants as cst
-from nuance.database import (
-    NodeRepository,
-    PostRepository,
-    InteractionRepository,
-    SocialAccountRepository,
-)
 import nuance.models as models
-from nuance.constitution import constitution_store
-from nuance.utils.logging import logger
-from nuance.utils.bittensor_utils import get_metagraph
-from nuance.settings import settings
-
-from neurons.validator.api_server.models import (
-    MinerScore,
-    MinerStatsResponse,
-    MinerScoresResponse,
-    PostVerificationResponse,
-    InteractionResponse,
-    AccountVerificationResponse,
-)
 from neurons.validator.api_server.dependencies import (
-    get_node_repo,
-    get_post_repo,
-    get_interaction_repo,
     get_account_repo,
+    get_interaction_repo,
+    get_node_repo,
     get_nuance_checker,
+    get_post_repo,
     get_topic_checker,
 )
+from neurons.validator.api_server.models import (
+    AccountVerificationResponse,
+    InteractionResponse,
+    MinerScore,
+    MinerScoresResponse,
+    MinerStatsResponse,
+    PostVerificationResponse,
+)
 from neurons.validator.scoring import ScoreCalculator
-
+from nuance.constitution import constitution_store
+from nuance.database import (
+    InteractionRepository,
+    NodeRepository,
+    PostRepository,
+    SocialAccountRepository,
+)
+from nuance.settings import settings
+from nuance.utils.bittensor_utils import get_metagraph
+from nuance.utils.logging import logger
 
 app = FastAPI(
     title="Nuance Network API",
