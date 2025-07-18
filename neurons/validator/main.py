@@ -169,7 +169,7 @@ class NuanceValidator:
                 if post_id:
                     # If account is verified, we process as normal
                     if account_verified:
-                        existing_post = await self.post_repository.get_by(
+                        post = existing_post = await self.post_repository.get_by(
                             platform_type=platform,
                             post_id=post_id
                         )
@@ -177,10 +177,6 @@ class NuanceValidator:
                         if not existing_post:
                             # Fetch post using social provider
                             post = await self.social.get_post(platform, post_id)
-
-                            # Queue post for processing
-                            await self.post_queue.put(post)
-                            logger.info(f"Queued post {post_id} for processing")
                             
                             if not post:
                                 logger.warning(f"Could not fetch post {post_id}")
@@ -207,9 +203,9 @@ class NuanceValidator:
                         # Upsert account to database
                         await self.account_repository.upsert(account)
 
-                        # Queue post for processing
-                        await self.post_queue.put(post)
-                        logger.info(f"Queued post {post_id} for processing")
+                    # Queue post for processing
+                    await self.post_queue.put(post)
+                    logger.info(f"Queued post {post_id} for processing")
 
                 # Process interaction if provided (requires post_id)
                 if interaction_id:
