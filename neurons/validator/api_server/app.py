@@ -57,7 +57,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",  # Local development server
         "https://www.nuance.info",  # Production domain
-        "https://www.docs.nuance.info/",  # Documentation domain
+        "https://www.docs.nuance.info",  # Documentation domain
         "https://docs.nuance.info",  # Documentation domain without www
     ],
     allow_credentials=True,
