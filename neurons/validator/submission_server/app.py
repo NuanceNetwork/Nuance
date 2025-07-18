@@ -7,17 +7,15 @@ from typing import Annotated
 
 import aiohttp
 import bittensor as bt
-from fastapi import BackgroundTasks, Body, Depends, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from nuance.models import PlatformType
 from nuance.utils.bittensor_utils import (
     get_axons,
     get_metagraph,
-    get_subtensor,
     get_wallet,
     is_validator,
 )
@@ -293,6 +291,7 @@ async def queue_submission(
                 "hotkey": submission_data.node_hotkey or sender_hotkey,
                 "platform": submission_data.platform.value,
                 "account_id": submission_data.account_id,
+                "username": submission_data.username,
                 "verification_post_id": submission_data.verification_post_id,
                 "post_id": submission_data.post_id,
                 "interaction_id": submission_data.interaction_id,

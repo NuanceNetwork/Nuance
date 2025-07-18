@@ -465,10 +465,10 @@ async def get_recent_posts(
 
     Parameters:
     - platform_type: The type of platform to get interactions from
-    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to 14 days ago if not provided
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to scoring window days ago if not provided
     - skip: Number of posts to skip (for pagination)
     - limit: Maximum number of posts to return
-    - min_interactions: Minimum number of interactions required (default 1 to only reutnr posts with verified interactions)
+    - min_interactions: Minimum number of interactions required (default 1 to only return posts with verified interactions)
     - only_scored: Whether to filter posts by score (default True)
     """
     logger.info(
@@ -708,7 +708,7 @@ async def get_recent_interactions(
 
     Parameters:
     - platform_type: The type of platform to get interactions from
-    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to 14 days ago if not provided
+    - cutoff_date: ISO formatted date string (YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ). Defaults to scoring window days ago if not provided
     - skip: Number of interactions to skip (for pagination)
     - limit: Maximum number of interactions to return
     """

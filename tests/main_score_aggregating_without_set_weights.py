@@ -60,7 +60,7 @@ class Test:
     async def score_aggregating(self):
         """
         Calculate scores for all nodes based on recent interactions.
-        This method periodically queries for interactions from the last 14 days,
+        This method periodically queries for interactions from the last scoring window,
         scores them based on freshness and account influence, and updates node scores.
         """
         while True:
@@ -69,16 +69,16 @@ class Test:
                 current_block = await self.subtensor.get_current_block()
                 logger.info(f"Calculating scores for block {current_block}")
 
-                # Get cutoff date (14 days ago)
+                # Get cutoff date
                 cutoff_date = datetime.datetime.now(
                     tz=datetime.timezone.utc
-                ) - datetime.timedelta(days=14)
+                ) - datetime.timedelta(days=cst.SCORING_WINDOW)
 
                 # Get constitution config
                 constitution_config = await constitution_store.get_constitution_config()
                 constitution_topics = constitution_config.get("topics", {})
 
-                # 1. Get all interactions from the last 14 days that are PROCESSED and ACCEPTED
+                # 1. Get all interactions from the last scoring window that are PROCESSED and ACCEPTED
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
                         cutoff_date=cutoff_date,
@@ -248,7 +248,7 @@ class Test:
         Args:
             interaction: The interaction to score
             interaction_account: The account that made the interaction
-            cutoff_date: The date beyond which interactions are not scored (14 days ago)
+            cutoff_date: The date beyond which interactions are not scored (scoring window)
 
         Returns:
             dict[str, float]: The calculated score for each category

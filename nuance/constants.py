@@ -2,7 +2,6 @@
 from nuance.settings import settings
 
 
-SCORING_HOUR = 16
 EPOCH_LENGTH = 300 * 12 if not settings.DEBUG else 50 * 12 # seconds
 
 NUANCE_CONSTITUTION_STORE_URL = "https://github.com/NuanceNetwork/constitution" # Github URL

@@ -177,6 +177,10 @@ class NuanceValidator:
                         if not existing_post:
                             # Fetch post using social provider
                             post = await self.social.get_post(platform, post_id)
+
+                            # Queue post for processing
+                            await self.post_queue.put(post)
+                            logger.info(f"Queued post {post_id} for processing")
                             
                             if not post:
                                 logger.warning(f"Could not fetch post {post_id}")
@@ -203,9 +207,9 @@ class NuanceValidator:
                         # Upsert account to database
                         await self.account_repository.upsert(account)
 
-                    # Queue for processing
-                    await self.post_queue.put(post)
-                    logger.info(f"Queued post {post_id} for processing")
+                        # Queue post for processing
+                        await self.post_queue.put(post)
+                        logger.info(f"Queued post {post_id} for processing")
 
                 # Process interaction if provided (requires post_id)
                 if interaction_id:
@@ -572,7 +576,7 @@ class NuanceValidator:
                 # Wait before next scoring cycle
                 await asyncio.sleep(cst.EPOCH_LENGTH)
 
-            except Exception as e:
+            except Exception:
                 logger.error(f"Error in score aggregation: {traceback.format_exc()}")
                 await asyncio.sleep(10)  # Backoff on error
                 
