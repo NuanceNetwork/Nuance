@@ -79,7 +79,6 @@ async def get_miner_stats(
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
-    only_count_accepted: bool = True,
 ):
     """
     Get overall stats for a specific miner by hotkey.
@@ -90,63 +89,70 @@ async def get_miner_stats(
     - Number of interactions received
     """
     logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
-
-    # Check if node exists
-    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
-    if not node:
-        logger.warning(f"Miner not found with hotkey: {node_hotkey}")
-        raise HTTPException(status_code=404, detail="Miner not found")
-
-    # Get accounts, posts and interactions counts
-    accounts = await account_repo.find_many(node_hotkey=node_hotkey)
+    accounts = await get_miner_accounts(
+        node_hotkey=node_hotkey,
+        node_repo=node_repo,
+        account_repo=account_repo,
+        skip=0,  # Get all accounts for counting
+        limit=1000,  # Get all accounts for counting
+    )
     account_count = len(accounts)
-    logger.debug(f"Found {account_count} accounts for miner {node_hotkey}")
+    logger.info(f"Found {account_count} accounts for miner {node_hotkey}")
 
-    # Get account IDs
-    account_ids = [(acc.platform_type, acc.account_id) for acc in accounts]
+    # Get cutoff date
+    cutoff_date = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
+        days=cst.SCORING_WINDOW
+    )
 
-    # Get posts and interactions
-    post_count = 0
-    interaction_count = 0
+    # Get constitution config
+    constitution_config = await constitution_store.get_constitution_config()
+    constitution_topics = constitution_config.get("topics", {})
+    logger.debug(f"Constitution topics: {constitution_topics}")
 
-    for platform_type, account_id in account_ids:
+    # Get posts for each account
+    verifed_users_on_platform = await constitution_store.get_verified_users(platform="twitter") # for now we only use twitter
+    verifed_user_ids_on_platform = [user["id"] for user in verifed_users_on_platform if user.get("id") is not None]
+    all_posts: list[models.Post] = []
+    all_interactions: list[models.Interaction] = []
+    for account in accounts:
         posts = await post_repo.find_many(
-            platform_type=platform_type, account_id=account_id
+            platform_type=account.platform_type, account_id=account.account_id,
+            processing_status=models.ProcessingStatus.ACCEPTED,
         )
-
+        logger.debug(f"Found {len(posts)} posts for account {account.account_id} on platform {account.platform_type}. Starting topic filtering.")
+        logger.debug(f"Checking if account {account.account_id} is verified on platform {account.platform_type}.")
+        if account.account_id in verifed_user_ids_on_platform:
+            logger.debug(f"Account {account.account_id} is verified on platform {account.platform_type}.")
+            all_posts.extend(posts)
         for post in posts:
-            post_interaction_counts = 0
-
-            if only_count_accepted:
-                cutoff_date = datetime.datetime.now(
-                    tz=datetime.timezone.utc
-                ) - datetime.timedelta(days=cst.SCORING_WINDOW)
+            topics = post.topics or []
+            logger.debug(f"Post {post.post_id} topics: {topics}")
+            # Filter posts by constitution topics
+            if any(
+                topic in constitution_topics for topic in topics
+            ):
                 interactions = await interaction_repo.get_recent_interactions(
                     cutoff_date=cutoff_date,
-                    platform_type=platform_type,
-                    post_id=post.post_id,
+                    platform_type=account.platform_type, post_id=post.post_id,
                     processing_status=models.ProcessingStatus.ACCEPTED,
                 )
-            else:
-                interactions = await interaction_repo.find_many(
-                    platform_type=platform_type, post_id=post.post_id
-                )
+                if interactions:
+                    if post not in all_posts:
+                        all_posts.append(post)
+                    logger.debug(f"Post {post.post_id} has {len(interactions)} interactions")
+                    all_interactions.extend(interactions)
 
-            post_interaction_counts = len(interactions)
-            interaction_count += len(interactions)
-
-            if post_interaction_counts > 0:
-                post_count += 1
+    logger.debug(f"Found {len(all_posts)} total posts for miner {node_hotkey}")
 
     logger.info(
-        f"Completed stats for miner {node_hotkey}: {post_count} posts, {interaction_count} interactions"
+        f"Completed stats for miner {node_hotkey}: {len(all_posts)} posts, {len(all_interactions)} interactions"
     )
 
     return MinerStatsResponse(
         node_hotkey=node_hotkey,
         account_count=account_count,
-        post_count=post_count,
-        interaction_count=interaction_count,
+        post_count=len(all_posts),
+        interaction_count=len(all_interactions),
     )
 
 
