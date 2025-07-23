@@ -419,7 +419,7 @@ class NuanceValidator:
                             f"Interaction {interaction.interaction_id} processed successfully with status {result.status}"
                         )
                         # Upsert the interacted account to database
-                        await self.account_repository.upsert(interaction.social_account)
+                        await self.account_repository.upsert(interaction.social_account, exclude_none_updates=True)
 
                         # Upsert the interaction to database
                         await self.interaction_repository.upsert(interaction)
@@ -437,7 +437,7 @@ class NuanceValidator:
                     interaction.processing_note = "Parent post rejected"
                     
                     # Upsert the interacted account to database
-                    await self.account_repository.upsert(interaction.social_account)
+                    await self.account_repository.upsert(interaction.social_account, exclude_none_updates=True)
                     
                     # Upsert the interaction to database
                     await self.interaction_repository.upsert(interaction)
