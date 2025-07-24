@@ -155,6 +155,25 @@ async def get_miner_stats(
         interaction_count=len(all_interactions),
     )
 
+from neurons.validator.api_server.models import MinerDetailResponse
+@app.get("/miners/{node_hotkey}/detail_score", response_model=MinerDetailResponse)
+async def get_miner_detail_score(
+    node_hotkey: str,
+):
+    """ Get detailed score for a specific miner by hotkey."""
+
+    # 1. get accounts
+    accounts = await get_miner_accounts(
+        node_hotkey=node_hotkey,
+        node_repo= get_node_repo(),
+        account_repo= get_account_repo(),
+    )
+
+    return MinerDetailResponse(
+        node_hotkey=node_hotkey,
+        accounts=accounts
+    )
+
 
 @app.get("/miners/scores", response_model=MinerScoresResponse)
 async def get_miner_scores(

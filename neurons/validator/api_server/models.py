@@ -33,6 +33,15 @@ class AccountVerificationResponse(BaseModel):
     node_netuid: Optional[int] = Field(None, description="Associated network UID")
     is_verified: bool = Field(..., description="Whether the account is verified")
 
+class MinerDetailResponse(BaseModel):
+    """Response model for miner details."""
+    
+    node_hotkey: str = Field(..., description="Miner's hotkey")
+    accounts: list[AccountVerificationResponse] = Field(..., description="Number of verified social accounts")
+    # posts: int = Field(..., description="Number of posts submitted")
+    # interactions: int = Field(..., description="Number of interactions received")
+    # score: float = Field(..., description="Miner's score")
+
 
 class PostVerificationResponse(BaseModel):
     """Response model for post verification status."""
