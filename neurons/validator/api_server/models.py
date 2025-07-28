@@ -10,13 +10,33 @@ class MinerScore(BaseModel):
     node_hotkey: str = Field(..., description="Miner's hotkey")
     score: float = Field(..., description="Miner's score")
 
+
 class MinerScoresResponse(BaseModel):
     """Response model for miner scores."""
     miner_scores: list[MinerScore] = Field(..., description="List of miner scores")
 
+
+class CategoryScoreItem(BaseModel):
+    type: str = Field(..., description="Type of content (post or interaction)")
+    id: str = Field(..., description="Content ID")
+    platform: str = Field(..., description="Platform type (twitter, etc.)")
+    raw_score: float = Field(..., description="Raw score for this category")
+    normalized_contribution: float = Field(..., description="Contribution to this category's normalized score")
+
+class CategoryBreakdown(BaseModel):
+    normalized_score: float = Field(..., description="Miner's normalized score in this category")
+    items: list[CategoryScoreItem] = Field(..., description="Items contributing to this category")
+
+
+class MinerScoreBreakdownResponse(BaseModel):
+    node_hotkey: str = Field(..., description="Miner's hotkey")
+    final_score: float = Field(..., description="Final weighted score across all categories")
+    total_items: int = Field(..., description="Total number of scored items")
+    categories: dict[str, CategoryBreakdown] = Field(..., description="Breakdown by category")
+
+
 class MinerStatsResponse(BaseModel):
     """Response model for miner statistics."""
-    
     node_hotkey: str = Field(..., description="Miner's hotkey")
     account_count: int = Field(..., description="Number of verified social accounts")
     post_count: int = Field(..., description="Number of posts submitted")
@@ -25,7 +45,6 @@ class MinerStatsResponse(BaseModel):
 
 class AccountVerificationResponse(BaseModel):
     """Response model for account verification."""
-    
     platform_type: str = Field(..., description="Social media platform type")
     account_id: str = Field(..., description="Platform-specific account ID")
     username: str = Field(..., description="Account username")
@@ -36,22 +55,19 @@ class AccountVerificationResponse(BaseModel):
 
 class PostVerificationResponse(BaseModel):
     """Response model for post verification status."""
-    
     platform_type: str = Field(..., description="Social media platform type")
     post_id: str = Field(..., description="Platform-specific post ID")
+    account_id: str = Field(..., description="Account that made the post")
     content: str = Field(..., description="Post content")
     topics: list[str] = Field(default=[], description="Topics identified in the post")
     processing_status: str = Field(..., description="Current processing status")
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     interaction_count: int = Field(default=0, description="Number of interactions with this post")
     created_at: datetime.datetime = Field(..., description="Date and time the post was created")
-    username: Optional[str] = Field(default="", description="Username of the account that made the post")
-    profile_pic_url: Optional[str] = Field(default="", description="URL of the account's profile picture")
 
 
 class InteractionResponse(BaseModel):
     """Response model for interaction details."""
-    
     platform_type: str = Field(..., description="Social media platform type")
     interaction_id: str = Field(..., description="Platform-specific interaction ID")
     interaction_type: str = Field(..., description="Type of interaction (reply, like, etc.)")

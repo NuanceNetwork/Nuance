@@ -504,7 +504,7 @@ class NuanceValidator:
                 )
 
                 # 2. Calculate scores for all miners (use ScoreCalculator)
-                node_scores = await self.score_calculator.aggregate_scores(
+                node_scores = await self.score_calculator.calculate_aggregated_scores(
                     recent_posts=recent_posts,
                     recent_interactions=recent_interactions,
                     cutoff_date=cutoff_date,
