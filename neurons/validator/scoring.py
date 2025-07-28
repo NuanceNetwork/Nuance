@@ -199,12 +199,16 @@ class ScoreCalculator:
 
         base_score_for_account: dict[str, float] = {}
         for account_id, count in engagement_count_by_account.items():
-            score = (
-                1.0 if count == 1 else
-                1.7 if count == 2 else
-                2.0 if count >= 3 else
-                0.0
-            )
+            if count > 0:
+                score = (
+                    1.0 if count == 1 else
+                    1.7 if count == 2 else
+                    2.0
+                )
+                score = score / count
+            else:
+                score = 0.0
+
             base_score_for_account[account_id] = score
 
         # Process each interaction
