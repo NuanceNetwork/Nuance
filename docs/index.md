@@ -10,41 +10,78 @@ hide:
 
 Nuance is a revolutionary subnet project aimed at transforming the media landscape by incentivizing users on X to promote factual and nuanced opinions.
 
-Our vision is to create a decentralized swarm that assist humans in understanding contemporary issues in a fair and transparent manner.
+Our vision is to create a decentralized swarm that assists humans in understanding contemporary issues in a fair and transparent manner.
 
-## Incentive Mechanism
+## Quick Links
 
-In this subnet, miners are rewarded for contributing factual and nuanced posts and comments. The reward system is designed to encourage high-quality content by basing rewards on the engagement received from verified accounts. Here's how it works:
+- **🌐 [Main Website](https://www.nuance.info/)** - General information, subnet status, and performance tracking
+- **📚 [Documentation](https://www.docs.nuance.info/)** - Complete guides and API interface for content submission
+- **🔗 [API Explorer](http://api.nuance.info/scalar)** - Browse subnet data, check scores, and explore posts/interactions
+- **🐦 [Follow us on X](https://x.com/NuanceSubnet)** - Latest updates and official announcements
 
-- **Objective**: To challenge media giants by fostering a community that values factual and nuanced discourse.
-- **Mechanism**: Miners are incentivized to create content that is both factual and nuanced. Their rewards are determined by the level of engagement their content receives from verified users.
-- **Engagement**: The focus is on interactions such as replies, which are currently easier to track on X, but the system is designed to be adaptable to other social platforms in the future.
+## How It Works
 
-The validator implements this incentive mechanism through several key steps:
+### For Miners
 
-1. **Account Verification**: Miners commit their X account username and verification post ID on-chain. Validators verify miners by checking that the verification post quotes the Nuance announcement post and contains the miner's hotkey.
+1. **Account Verification**: Connect your X account by either:
+   - Including specific hashtags in your posts, or
+   - Creating a verification post that replies to or quotes any post from the [Nuance subnet's X account](https://x.com/NuanceSubnet), containing your miner hotkey
 
-2. **Content Discovery**: Validators query on-chain commits to retrieve miners' X accounts. They then discover new posts made by miners, filtering them through Large Language Models (LLM) to ensure the content is nuanced and relevant to specific subjects, such as bittensor.
+2. **Content Submission**: Submit your factual and nuanced posts through:
+   - **[Documentation Portal](https://www.docs.nuance.info/)** (recommended for easy submission)
+   - **Validator Axons** (check metagraph for validator endpoints)
 
-3. **Interaction Analysis**: Validators identify interactions with miners' posts, filtering them for positivity and ensuring they originate from a list of verified users.
+3. **Earn Rewards**: Get rewarded based on:
+   - Quality interactions (replies) from verified community members
+   - Your own posts (if you own a verified account)
+   - Content relevance to current topics of interest
 
-4. **Scoring**: Interactions are scored based on multiple factors:
-   - **Interaction Type**: Replies is the only supported interaction type at the moment
-   - **Recency**: Only interactions within the last 14 days are considered, with newer interactions weighted higher
-   - **Account Influence**: Higher scores for interactions from accounts with more followers
-   - **Content Categories**: Scores are weighted by topic categories, allowing emphasis on specific subjects
+### For Validators
 
-5. **Score Aggregation**: Final scores are calculated by:
-   - Normalizing scores within each category
-   - Applying category weights to prioritize certain topics
-   - Setting weights on the Bittensor chain to determine miner rewards
+Validators process content through this hybrid workflow:
 
-This approach ensures that quality content receives appropriate recognition while maintaining focus on the most relevant topics for the community.
+1. **Content Discovery**: Currently accepts content through:
+   - **Direct submission APIs** (recommended method)
+   - **Content scraping** from verified miners' X accounts (being phased out)
+2. **Quality Filtering**: Use LLMs to verify content is nuanced and relevant to specific topics
+3. **Interaction Analysis**: Score positive interactions from verified community members
+4. **Dynamic Scoring**: Calculate rewards using a multi-factor system:
+   - **Engagement Quality**: Different interaction types have varying weights
+   - **Account Influence**: Higher scores for interactions from weighted community members
+   - **7-Day Window**: Only interactions from the last 7 days are considered for scoring
+   - **Anti-Spam Protection**: Capped scoring per user to prevent gaming
+   - **Topic Categories**: Content scored by relevance to current focus areas
+
+5. **Weight Setting**: Aggregate scores across categories and set network weights
+
+### Scoring Formula
+
+The scoring system balances engagement quality and prevents spam:
+
+```
+Base Score = f(engagement_count) where:
+- 1 engagement = 1.0 points
+- 2 engagements = 1.7 points  
+- 3+ engagements = 2.0 points
+(then divided by total engagements per account)
+
+Final Score = Base Score × Interaction Weight × User Influence × Topic Weight
+```
+
+## Getting Started
+
+- **Miners**: Visit our [documentation](https://www.docs.nuance.info/) for setup guides and submission tools
+- **Validators**: See the sections below for detailed setup instructions
+- **Community**: Explore the [API](http://api.nuance.info/scalar) to track subnet performance and your contributions
 
 ## Validator Setup
 
-For detailed instructions on setting up validators, please refer to the [full documentation](./validators.md).
+For detailed instructions on setting up validators, please refer to the [full documentation](docs/validator.md).
 
 ## Miner Setup
 
-For detailed instructions on setting up miners, please refer to the [full documentation](./miners.md).
+For detailed instructions on setting up miners, please refer to the [full documentation](docs/miner.md).
+
+---
+
+*Building a more nuanced discourse, one interaction at a time.*
