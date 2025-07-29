@@ -2,9 +2,8 @@
 import argparse
 import asyncio
 import datetime
-from typing import Annotated, Awaitable, Callable
+from typing import Annotated, Awaitable, Callable, Optional
 
-import aiohttp
 import bittensor as bt
 import numpy as np
 import uvicorn
@@ -31,6 +30,9 @@ from neurons.validator.api_server.models import (
     MinerScore,
     MinerScoresResponse,
     MinerStatsResponse,
+    CategoryScoreItem,
+    CategoryBreakdown,
+    MinerScoreBreakdownResponse,
     PostVerificationResponse,
 )
 from neurons.validator.scoring import ScoreCalculator
@@ -48,7 +50,6 @@ from nuance.utils.logging import logger
 app = FastAPI(
     title="Nuance Network API",
     description="API for the Nuance Network decentralized social media validation system",
-    version="0.0.1",
 )
 
 app.add_middleware(
@@ -89,6 +90,8 @@ async def get_miner_stats(
     - Number of interactions received
     """
     logger.info(f"Getting stats for miner with hotkey: {node_hotkey}")
+    
+    # Get all miner 's accounts
     accounts = await get_miner_accounts(
         node_hotkey=node_hotkey,
         node_repo=node_repo,
@@ -103,6 +106,8 @@ async def get_miner_stats(
     cutoff_date = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(
         days=cst.SCORING_WINDOW
     )
+
+    # Get all miner 's posts
 
     # Get constitution config
     constitution_config = await constitution_store.get_constitution_config()
@@ -123,6 +128,7 @@ async def get_miner_stats(
         logger.debug(f"Checking if account {account.account_id} is verified on platform {account.platform_type}.")
         if account.account_id in verifed_user_ids_on_platform:
             logger.debug(f"Account {account.account_id} is verified on platform {account.platform_type}.")
+            # All posts from verified accounts count
             all_posts.extend(posts)
         for post in posts:
             topics = post.topics or []
@@ -207,7 +213,7 @@ async def get_miner_scores(
 
     # 2. Calculate scores for all miners (keyed by hotkey)
     node_scores: dict[str, dict[str, float]] = {}  # {hotkey: {category: score}}
-    node_scores = await score_calculator.aggregate_scores(
+    node_scores = await score_calculator.calculate_aggregated_scores(
         recent_posts=recent_posts,
         recent_interactions=recent_interactions,
         cutoff_date=cutoff_date,
@@ -316,7 +322,7 @@ async def get_miner_posts(
     account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     skip: int = 0,
-    limit: int = 20,
+    limit: Optional[int] = 20,
 ):
     """
     Get posts submitted by a specific miner.
@@ -358,7 +364,10 @@ async def get_miner_posts(
     all_posts.sort(
         key=lambda x: x.created_at if hasattr(x, "created_at") else 0, reverse=True
     )
-    paginated_posts = all_posts[skip : skip + limit]
+    if limit is not None and limit > 0:
+        paginated_posts = all_posts[skip : skip + limit]
+    else:
+        paginated_posts = all_posts[skip:]
 
     # Create response objects with interaction counts
     result = []
@@ -371,6 +380,7 @@ async def get_miner_posts(
             PostVerificationResponse(
                 platform_type=post.platform_type,
                 post_id=post.post_id,
+                account_id=post.account_id,
                 content=post.content,
                 topics=post.topics or [],
                 processing_status=post.processing_status,
@@ -391,7 +401,7 @@ async def get_miner_interactions(
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     skip: int = 0,
-    limit: int = 20,
+    limit: Optional[int] = 20,
 ):
     """
     Get all interactions on content from a specific miner.
@@ -434,7 +444,10 @@ async def get_miner_interactions(
 
     # Sort by most recent first
     all_interactions.sort(key=lambda x: x.created_at, reverse=True)
-    paginated_interactions = all_interactions[skip : skip + limit]
+    if limit is not None and limit > 0:
+        paginated_interactions = all_interactions[skip : skip + limit]
+    else:
+        paginated_interactions = all_interactions[skip:]
 
     return [
         InteractionResponse(
@@ -451,6 +464,132 @@ async def get_miner_interactions(
         for interaction in paginated_interactions
     ]
 
+@app.get("/miners/{node_hotkey}/score-breakdown", response_model=MinerScoreBreakdownResponse)
+async def get_miner_score_breakdown(
+    node_hotkey: str,
+    node_repo: Annotated[NodeRepository, Depends(get_node_repo)],
+    post_repo: Annotated[PostRepository, Depends(get_post_repo)],
+    account_repo: Annotated[SocialAccountRepository, Depends(get_account_repo)],
+    interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    metagraph: Annotated[bt.Metagraph, Depends(get_metagraph)],
+    score_calculator: ScoreCalculator = Depends(ScoreCalculator),
+):
+    """Get detailed score breakdown showing how each post/interaction contributes to miner 's final score."""
+    logger.info(f"Getting score breakdown for miner: {node_hotkey}")
+
+    # Check if node exists
+    node = await node_repo.get_by(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
+    if not node:
+        raise HTTPException(status_code=404, detail="Miner not found")
+    
+    # Get cutoff date
+    cutoff_date = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=cst.SCORING_WINDOW)
+
+    # Get recent posts and interactions
+    recent_interactions = await interaction_repo.get_recent_interactions(
+        cutoff_date=cutoff_date,
+        processing_status=models.ProcessingStatus.ACCEPTED
+    )
+    
+    recent_posts = await post_repo.get_recent_posts(
+        cutoff_date=cutoff_date,
+        processing_status=models.ProcessingStatus.ACCEPTED
+    )
+
+    # Get detailed scores and aggregate them
+    detailed_scores = await score_calculator.calculate_detailed_scores(
+        recent_posts=recent_posts,
+        recent_interactions=recent_interactions,
+        cutoff_date=cutoff_date,
+        post_repository=post_repo,
+        account_repository=account_repo,
+        node_repository=node_repo
+    )
+
+    node_scores = score_calculator.aggregate_scores(detailed_scores=detailed_scores)
+
+    # Apply normalization logic
+    constitution_config = await constitution_store.get_constitution_config()
+    constitution_topics = constitution_config.get("topics", {})
+
+    categories_scores = {category: np.zeros(len(metagraph.hotkeys)) for category in list(constitution_topics.keys())}
+    for hotkey, scores in node_scores.items():
+        if hotkey in metagraph.hotkeys:
+            for category, score in scores.items():
+                if category in categories_scores:
+                    categories_scores[category][metagraph.hotkeys.index(hotkey)] = score
+
+    # Normalize scores for each category
+    for category in categories_scores:
+        categories_scores[category] = np.nan_to_num(categories_scores[category], 0)
+        if np.sum(categories_scores[category]) > 0:
+            categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
+        else:
+            categories_scores[category] = np.zeros_like(categories_scores[category])
+
+    # Weighted sum of categories for final scores
+    final_scores = np.zeros(len(metagraph.hotkeys))
+    for category in categories_scores:
+        final_scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
+
+    # Get this miner's data
+    miner_items = detailed_scores.get(node_hotkey, [])
+    miner_final_score = final_scores[metagraph.hotkeys.index(node_hotkey)] if node_hotkey in metagraph.hotkeys else 0.0
+    
+    # Build category breakdown
+    categories_breakdown = {}
+
+    for category in constitution_topics.keys():
+        if node_hotkey not in metagraph.hotkeys:
+            continue
+
+        hotkey_index = metagraph.hotkeys.index(node_hotkey)
+        category_normalized_score = categories_scores.get(category, np.zeros(len(metagraph.hotkeys)))[hotkey_index]
+        
+        # Get items that contribute to this category
+        category_items = []
+        for item in miner_items:
+            if category in item["category_scores"]:
+                raw_score = item["category_scores"][category]
+                
+                # Calculate this item's contribution to the category's normalized score
+                if node_hotkey in node_scores and category in node_scores[node_hotkey] and node_scores[node_hotkey][category] > 0:
+                    item_contribution = (raw_score / node_scores[node_hotkey][category]) * category_normalized_score
+                else:
+                    item_contribution = 0.0
+                
+                if item_contribution > 0:
+                    category_items.append({
+                        "type": item["type"],
+                        "id": item["id"],
+                        "platform": item["platform"],
+                        "raw_score": raw_score,
+                        "normalized_contribution": item_contribution
+                    })
+
+        # Sort by contribution and limit
+        category_items.sort(key=lambda x: x["normalized_contribution"], reverse=True)
+        
+        categories_breakdown[category] = CategoryBreakdown(
+            normalized_score=category_normalized_score,
+            items=[
+                CategoryScoreItem(
+                    type=item["type"],
+                    id=item["id"],
+                    platform=item["platform"],
+                    raw_score=item["raw_score"],
+                    normalized_contribution=item["normalized_contribution"]
+                )
+                for item in category_items
+            ]
+        )
+
+    return MinerScoreBreakdownResponse(
+        node_hotkey=node_hotkey,
+        final_score=miner_final_score,
+        total_items=len(miner_items),
+        categories=categories_breakdown
+    )
 
 @app.get("/posts/{platform_type}/recent", response_model=list[PostVerificationResponse])
 async def get_recent_posts(
@@ -551,30 +690,17 @@ async def get_recent_posts(
 
         result = []
         for post in result_posts:
-            if post.platform_type == "twitter":
-                user = post.extra_data.get("user", {})
-                if user:
-                    username = user.get("username", "")
-                    profile_pic_url = user.get("profile_image_url", "")
-                else:
-                    username = ""
-                    profile_pic_url = ""
-            else:
-                username = ""
-                profile_pic_url = ""
-
             result.append(
                 PostVerificationResponse(
                     platform_type=post.platform_type,
                     post_id=post.post_id,
+                    account_id=post.account_id,
                     content=post.content,
                     topics=post.topics or [],
                     processing_status=post.processing_status,
                     processing_note=post.processing_note,
                     interaction_count=interaction_count,
                     created_at=post.created_at,
-                    username=username,
-                    profile_pic_url=profile_pic_url,
                 )
             )
 
@@ -621,6 +747,7 @@ async def get_post(
     return PostVerificationResponse(
         platform_type=post.platform_type,
         post_id=post.post_id,
+        account_id=post.account_id,
         content=post.content,
         topics=post.topics or [],
         processing_status=post.processing_status,

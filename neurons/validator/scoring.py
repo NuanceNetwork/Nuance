@@ -151,7 +151,171 @@ class ScoreCalculator:
 
         return post_scores
     
-    async def aggregate_scores(
+    async def calculate_detailed_scores(
+        self,
+        recent_posts: list[models.Post],
+        recent_interactions: list[models.Interaction],
+        cutoff_date: datetime.datetime,
+        post_repository: PostRepository,
+        account_repository: SocialAccountRepository,
+        node_repository: NodeRepository,
+    ) -> dict[str, list[dict]]:
+        """Returns simplified detailed score breakdown for each post/interaction by miner hotkey."""
+        
+        node_detailed_scores: dict[str, list[dict]] = {}
+        constitution_config = await constitution_store.get_constitution_config()
+
+        # Filter posts from verified accounts only
+        posts_from_verified_users: list[models.Post] = []
+        posts_by_platform: dict[str, list[models.Post]] = {
+            platform: [] for platform in constitution_config.get("platforms", {})
+        }
+        for post in recent_posts:
+            if post.platform_type in posts_by_platform:
+                posts_by_platform[post.platform_type].append(post)
+        
+        for platform, posts_on_platform in posts_by_platform.items():
+            verified_users_on_platform = await constitution_store.get_verified_users(platform=platform)
+            verified_user_ids_on_platform = [user["id"] for user in verified_users_on_platform if user.get("id") is not None]
+            for post in posts_on_platform:
+                if post.account_id in verified_user_ids_on_platform:
+                    posts_from_verified_users.append(post)
+        
+        recent_posts = posts_from_verified_users
+
+        # Calculate base scores per account
+        engagement_count_by_account: dict[str, int] = {}
+        for interaction in recent_interactions:
+            engagement_count_by_account[interaction.account_id] = engagement_count_by_account.get(interaction.account_id, 0) + 1
+        for post in recent_posts:
+            engagement_count_by_account[post.account_id] = engagement_count_by_account.get(post.account_id, 0) + 1
+
+        base_score_for_account: dict[str, float] = {}
+        for account_id, count in engagement_count_by_account.items():
+            if count > 0:
+                score = 1.0 if count == 1 else 1.7 if count == 2 else 2.0
+                score = score / count
+            else:
+                score = 0.0
+            base_score_for_account[account_id] = score
+
+        # Process interactions
+        for interaction in recent_interactions:
+            try:
+                post = await post_repository.get_by(platform_type=interaction.platform_type, post_id=interaction.post_id)
+                if not post or post.processing_status != models.ProcessingStatus.ACCEPTED:
+                    logger.warning(
+                        f"Post not found or not accepted for interaction {interaction.interaction_id}"
+                    )
+                    continue
+                
+                interaction.post = post
+                
+                post_account = await account_repository.get_by_platform_id(post.platform_type, post.account_id)
+                if not post_account:
+                    logger.warning(f"Account not found for post {post.post_id}")
+                    continue
+                    
+                interaction_account = await account_repository.get_by_platform_id(interaction.platform_type, interaction.account_id)
+                if not interaction_account:
+                    logger.warning(
+                        f"Account not found for interaction {interaction.interaction_id}"
+                    )
+                    continue
+                interaction.social_account = interaction_account
+                
+                node = await node_repository.get_by_hotkey_netuid(post_account.node_hotkey, settings.NETUID)
+                if not node:
+                    logger.warning(
+                        f"Node not found for account {post_account.account_id}"
+                    )
+                    continue
+
+                interaction_scores = await self.calculate_interaction_score(
+                    interaction=interaction,
+                    cutoff_date=cutoff_date,
+                    interaction_base_score=base_score_for_account[interaction.account_id],
+                )
+                
+                if not interaction_scores:
+                    continue
+
+                miner_hotkey = node.node_hotkey
+                if miner_hotkey not in node_detailed_scores:
+                    node_detailed_scores[miner_hotkey] = []
+                    
+                node_detailed_scores[miner_hotkey].append({
+                    "type": "interaction",
+                    "platform": interaction.platform_type,
+                    "id": interaction.interaction_id,
+                    "category_scores": interaction_scores,
+                })
+
+            except Exception:
+                logger.error(f"Error processing interaction {interaction.interaction_id}: {traceback.format_exc()}")
+
+        # Process posts
+        for post in recent_posts:
+            try:
+                post_account = await account_repository.get_by_platform_id(post.platform_type, post.account_id)
+                if not post_account:
+                    logger.warning(f"Account not found for post {post.post_id}")
+                    continue
+                    
+                node = await node_repository.get_by_hotkey_netuid(post_account.node_hotkey, settings.NETUID)
+                if not node:
+                    logger.warning(
+                        f"Node not found for account {post_account.account_id}"
+                    )
+                    continue
+
+                post_scores = await self.calculate_post_score(
+                    post=post,
+                    cutoff_date=cutoff_date,
+                    post_base_score=base_score_for_account[post.account_id],
+                )
+                
+                if not post_scores:
+                    continue
+
+                miner_hotkey = node.node_hotkey
+                if miner_hotkey not in node_detailed_scores:
+                    node_detailed_scores[miner_hotkey] = []
+                    
+                node_detailed_scores[miner_hotkey].append({
+                    "type": "post",
+                    "platform": post.platform_type,
+                    "id": post.post_id,
+                    "category_scores": post_scores,
+                })
+
+            except Exception:
+                logger.error(f"Error processing post {post.post_id}: {traceback.format_exc()}")
+
+        return node_detailed_scores
+    
+
+    def aggregate_scores(
+        self,
+        detailed_scores: dict[str, list[dict]]
+    ) -> dict[str, dict[str, float]]:
+        """Aggregate scores from detailed breakdown."""
+
+        node_scores: dict[str, dict[str, float]] = {}
+        
+        for hotkey, score_items in detailed_scores.items():
+            if hotkey not in node_scores:
+                node_scores[hotkey] = {}
+                
+            for item in score_items:
+                for category, score in item["category_scores"].items():
+                    if category not in node_scores[hotkey]:
+                        node_scores[hotkey][category] = 0.0
+                    node_scores[hotkey][category] += score
+        
+        return node_scores
+    
+    async def calculate_aggregated_scores(
         self,
         recent_posts: list[models.Post],
         recent_interactions: list[models.Interaction],
@@ -199,12 +363,16 @@ class ScoreCalculator:
 
         base_score_for_account: dict[str, float] = {}
         for account_id, count in engagement_count_by_account.items():
-            score = (
-                1.0 if count == 1 else
-                1.7 if count == 2 else
-                2.0 if count >= 3 else
-                0.0
-            )
+            if count > 0:
+                score = (
+                    1.0 if count == 1 else
+                    1.7 if count == 2 else
+                    2.0
+                )
+                score = score / count
+            else:
+                score = 0.0
+
             base_score_for_account[account_id] = score
 
         # Process each interaction
@@ -274,7 +442,7 @@ class ScoreCalculator:
                         node_scores[miner_hotkey][category] = 0.0
                     node_scores[miner_hotkey][category] += score
 
-            except Exception as e:
+            except Exception:
                 logger.error(
                     f"Error scoring interaction {interaction.interaction_id}: {traceback.format_exc()}"
                 )
@@ -318,7 +486,7 @@ class ScoreCalculator:
                     if category not in node_scores[miner_hotkey]:
                         node_scores[miner_hotkey][category] = 0.0
                     node_scores[miner_hotkey][category] += score
-            except Exception as e:
+            except Exception:
                 logger.error(
                     f"Error scoring post {post.post_id}: {traceback.format_exc()}"
                 )

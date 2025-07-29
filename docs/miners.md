@@ -9,6 +9,13 @@ hide:
 ## NEW SETUP INSTRUCTION
 Please check our [**example notebook**](/examples/miner_signup.ipynb) for full interactive guide on how to setup your miner on Nuance. 
 
+Additional helpful scripts and examples are available in the [`examples/`](/examples/) folder.
+
+## Quick Links
+- **📚 [Submit Content](https://www.docs.nuance.info/)** - Easy submission portal with API interface
+- **🔗 [Check Your Scores](http://api.nuance.info/scalar)** - Monitor your performance and recent submissions
+- **🐦 [Follow Updates](https://x.com/NuanceSubnet)** - Official announcements and subnet news
+
 ## Setup Instructions
 To set up a miner node on the Nuance Subnet, follow these steps:
 
@@ -52,20 +59,26 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     btcli subnets show
     ```
 
-4. Create a verification post on your X account
+4. Verify your X account
 
-    This step is crucial - validators will verify your X account using this post.
+    Choose one of these verification methods:
     
-    - Ensure your X account is public and has posting activity
-    - Create a new post that **quotes** the [Nuance announcement post](https://x.com/NuanceSubnet/status/1909263356654952674)
+    **Method 1: Verification Post (Recommended)**
+    - Create a post that **replies to** or **quotes** any post from [@NuanceSubnet](https://x.com/NuanceSubnet)
     - Include your hotkey address in the post text
+    - Ensure your X account is public and active
     
     Example post text:
     ```
     I'm joining the Nuance Network as a miner with hotkey: 5F7nTtN...XhVVi
     ```
     
-    Save the verification post ID as you'll need it for the next step.
+    **Method 2: Hashtag Verification**
+    - Include the hashtag `#NuanceUID` in your posts, where `UID` is your miner's UID in the subnet
+    - Example: If your UID is 42, use `#Nuance42` in your posts
+    - Find your UID by checking `btcli subnets show` after registration
+    
+    Save your verification post ID if using Method 1.
 
 5. Set environment variables
 
@@ -93,24 +106,56 @@ To set up a miner node on the Nuance Subnet, follow these steps:
     # Run the miner script
     uv run python -m neurons.miner.main
     
-    # When prompted, enter your X account username and verification post ID
+    # When prompted, enter your X account username and verification post ID (if using Method 1)
     ```
+
+## Content Submission & Scoring
+
+### How to Submit Content
+
+**Option 1: Documentation Portal (Recommended)**
+- Visit [docs.nuance.info](https://www.docs.nuance.info/) for easy content submission
+- User-friendly interface for non-technical users
+- Immediate submission confirmation
+
+**Option 2: Direct API Submission**
+- Submit directly to validator axons (check metagraph for validator endpoints)
+- For technical users comfortable with API calls
+- See [`examples/simple_submission.ipynb`](../examples/simple_submission.ipynb) for implementation details
+
+**Option 3: Automatic Discovery (Being Phased Out)**
+- Validators currently still scrape content from verified miners' X accounts
+- This method will be removed in future updates
+
+### Scoring System
+
+Your rewards are calculated based on:
+
+- **Engagement Quality**: Positive interactions (replies) from verified community members
+- **Account Status**: If you own a verified account, your own posts contribute to your score
+- **7-Day Window**: Only content and interactions from the last 7 days count
+- **Anti-Spam Protection**: Scoring is capped per user to prevent gaming
+- **Topic Relevance**: Content scored based on current focus areas
 
 ## Maintaining Your Miner Status
 
-- Keep your X account active by posting content relevant to Bittensor
-- Make sure your verification post remains accessible
-- Validators will automatically score your content based on the subnet's criteria
-- Checkout [miner tips](../examples/miner_tips.ipynb) for Nuance Subnet
+- Keep your X account active by posting factual, nuanced content
+- Submit your best content through the [documentation portal](https://www.docs.nuance.info/)
+- Monitor your performance via the [API explorer](http://api.nuance.info/scalar)
+- Follow [@NuanceSubnet](https://x.com/NuanceSubnet) for updates and announcements
+- Check out [miner tips](../examples/miner_tips.ipynb) for Nuance Subnet best practices
 
 ## Troubleshooting
 
 If you encounter issues:
 
-- Verify your wallet is registered: `btcli subnets show`
-- Check that your verification post:
-  - Is public and accessible
-  - Contains your exact hotkey address
-  - Is a quote tweet of the Nuance announcement post
-- Ensure your X account is public and active
-- Try recommitting your X account username and verification post ID if validators aren't picking up your content
+- **Registration**: Verify your wallet is registered with `btcli subnets show`
+- **Verification**: Check that your verification post/hashtags:
+  - Are public and accessible
+  - Contain your exact hotkey address
+  - Follow the correct format for your chosen method
+- **Submissions**: Try the [documentation portal](https://www.docs.nuance.info/) if direct submission isn't working
+- **Scoring**: Use the [API explorer](http://api.nuance.info/scalar) to check your recent submissions and scores
+- **Account Issues**: Ensure your X account is public and active
+
+For additional help, refer to the [full documentation](https://www.docs.nuance.info/) or follow [@NuanceSubnet](https://x.com/NuanceSubnet) for support updates.
