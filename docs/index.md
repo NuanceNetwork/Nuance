@@ -76,11 +76,11 @@ Final Score = Base Score × Interaction Weight × User Influence × Topic Weight
 
 ## Validator Setup
 
-For detailed instructions on setting up validators, please refer to the [full documentation](docs/validator.md).
+For detailed instructions on setting up validators, please refer to the [full documentation](./docs/validators.md).
 
 ## Miner Setup
 
-For detailed instructions on setting up miners, please refer to the [full documentation](docs/miner.md).
+For detailed instructions on setting up miners, please refer to the [full documentation](./docs/miners.md).
 
 ---
 
