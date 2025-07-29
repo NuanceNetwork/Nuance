@@ -558,13 +558,14 @@ async def get_miner_score_breakdown(
                 else:
                     item_contribution = 0.0
                 
-                category_items.append({
-                    "type": item["type"],
-                    "id": item["id"],
-                    "platform": item["platform"],
-                    "raw_score": raw_score,
-                    "normalized_contribution": item_contribution
-                })
+                if item_contribution > 0:
+                    category_items.append({
+                        "type": item["type"],
+                        "id": item["id"],
+                        "platform": item["platform"],
+                        "raw_score": raw_score,
+                        "normalized_contribution": item_contribution
+                    })
 
         # Sort by contribution and limit
         category_items.sort(key=lambda x: x["normalized_contribution"], reverse=True)
