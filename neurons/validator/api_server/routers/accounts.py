@@ -20,7 +20,7 @@ router = APIRouter(
 
 
 @router.get(
-    "/accounts/verify/{platform_type}/{account_id}",
+    "/verify/{platform_type}/{account_id}",
     response_model=AccountVerificationResponse,
 )
 async def verify_account(

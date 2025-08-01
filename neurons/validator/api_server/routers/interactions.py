@@ -17,6 +17,7 @@ router = APIRouter(
 )
 
 
+@router.get("/{platform_type}/recent", response_model=list[InteractionResponse])
 async def get_recent_interactions(
     platform_type: str,
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
@@ -102,6 +103,7 @@ async def get_recent_interactions(
         )
 
 
+@router.get("/{platform_type}/{interaction_id}", response_model=InteractionResponse)
 async def get_interaction(
     platform_type: str,
     interaction_id: str,
