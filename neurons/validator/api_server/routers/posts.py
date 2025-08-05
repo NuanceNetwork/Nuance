@@ -11,6 +11,7 @@ from neurons.validator.api_server.models import (
     PostVerificationResponse,
     InteractionResponse,
 )
+from neurons.validator.api_server.utils import extract_post_stats
 import nuance.constants as cst
 import nuance.models as models
 from nuance.database import (
@@ -36,6 +37,7 @@ async def get_recent_posts(
     limit: int = 20,
     min_interactions: int = 1,
     only_scored: bool = True,
+    include_stats: bool = False
 ):
     """
     Get recent posts from a specific platform created after the cutoff date.
@@ -136,6 +138,7 @@ async def get_recent_posts(
                     processing_note=post.processing_note,
                     interaction_count=interaction_count,
                     created_at=post.created_at,
+                    stats=extract_post_stats(post) if include_stats else None
                 )
             )
 
@@ -160,6 +163,7 @@ async def get_post(
     post_id: str,
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
+    include_stats: bool = False
 ):
     """
     Get verification status for a specific post.
@@ -189,6 +193,7 @@ async def get_post(
         processing_note=post.processing_note,
         interaction_count=len(interactions),
         created_at=post.created_at,
+        stats=extract_post_stats(post) if include_stats else None
     )
 
 
