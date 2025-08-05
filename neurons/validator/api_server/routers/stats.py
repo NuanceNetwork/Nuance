@@ -218,12 +218,13 @@ async def get_top_miners(
     limited_miners = miner_items[:limit]
 
     return TopMinersResponse(
-        miners=[item['item'] for item in limited_miners],
+        miners=miner_items,
         period=f"{start_date} to {end_date}",
         total_count=len(limited_miners)
     )
 
 
+@router.get("/subnet-stats", response_model=SubnetStatsSummary)
 async def get_subnet_stats(
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
@@ -232,7 +233,7 @@ async def get_subnet_stats(
     end_date: str = Query(None, description="End date (YYYY-MM-DD), defaults to today"),
 ):
     if not start_date or not end_date:
-        default_start, default_end = _get_default_date_range()
+        default_start, default_end = _get_default_date_range(days=30)
         start_date = start_date or default_start
         end_date = end_date or default_end
 

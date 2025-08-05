@@ -12,7 +12,7 @@ def extract_twitter_post_stats(post: Post) -> TwitterEngagementStats:
         return TwitterEngagementStats()
 
     data = {
-        field: convert_or_none(post.extra_data.get(field))
+        field: convert_or_none(post.extra_data.get(field), int)
         for field in TwitterEngagementStats.model_fields.keys()
     }
 
@@ -26,7 +26,7 @@ def extract_twitter_interaction_stats(
         return TwitterEngagementStats()
 
     data = {
-        field: convert_or_none(interaction.extra_data.get(field))
+        field: convert_or_none(interaction.extra_data.get(field), int)
         for field in TwitterEngagementStats.model_fields.keys()
     }
 
@@ -34,6 +34,7 @@ def extract_twitter_interaction_stats(
 
 
 def extract_post_stats(post: Post) -> Optional[EngagementStats]:
+    # print(post.extra_data)
     if post.platform_type == PlatformType.TWITTER:
         return extract_twitter_post_stats(post)
     else:

@@ -16,6 +16,7 @@ from neurons.validator.api_server.routers import (
     interactions,
     accounts,
     content,
+    stats
 )
 
 
@@ -49,6 +50,7 @@ app.include_router(posts.router)
 app.include_router(interactions.router)
 app.include_router(accounts.router)
 app.include_router(content.router)
+app.include_router(stats.router)
 
 
 @app.get("/scalar", include_in_schema=False)

@@ -77,6 +77,9 @@ class TwitterEngagementStats(EngagementStats):
     like_count: Optional[int] = None
     quote_count: Optional[int] = None
     bookmark_count: Optional[int] = None
+
+# Union of stats type for different platform types
+EngagementStatsType = TwitterEngagementStats
     
 
 class AccountVerificationResponse(BaseModel):
@@ -100,7 +103,7 @@ class PostVerificationResponse(BaseModel):
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     interaction_count: int = Field(default=0, description="Number of interactions with this post")
     created_at: datetime.datetime = Field(..., description="Date and time the post was created")
-    stats: Optional[EngagementStats] = None
+    stats: Optional[EngagementStatsType] = None
 
 
 class InteractionResponse(BaseModel):
@@ -114,16 +117,14 @@ class InteractionResponse(BaseModel):
     processing_status: ProcessingStatus = Field(..., description="Current processing status")
     processing_note: Optional[str] = Field(None, description="Additional processing information")
     created_at: datetime.datetime = Field(..., description="Date and time the interaction was created")
-    stats: Optional[EngagementStats] = None
+    stats: Optional[EngagementStatsType] = None
 
 
 class TopPostItem(BaseModel):
     date: str = Field(description="Post date (YYYY-MM-DD format), created_at field from Post")
     handle: str = Field(description="Account username/handle made the post")
     text: str = Field(description="Post content")
-    views: Optional[int] = None
-    likes: Optional[int] = None
-    stats: Optional[EngagementStats] = None
+    stats: Optional[EngagementStatsType] = None
 
 
 class TopPostsResponse(BaseModel):
@@ -134,7 +135,7 @@ class TopPostsResponse(BaseModel):
 
 class TopMinerItem(BaseModel):
     """Item in top miners list - matches dashboard table structure"""
-    uid: str = Field(..., description="Miner UID (e.g., #1208)")
+    uid: int = Field(..., description="Miner UID (e.g., 123)")
     handle: str = Field(..., description="Primary account handle/username")
     score: float = Field(..., description="Subnet score")
     retweet_count: int = Field(..., description="Number of retweets in the period")
@@ -153,4 +154,4 @@ class SubnetStatsSummary(BaseModel):
     account_count: int = Field(..., description="Number of verified social accounts")
     post_count: int = Field(..., description="Number of posts submitted")
     interaction_count: int = Field(..., description="Number of interactions received")
-    engagement_stats: EngagementStats = Field(..., description="Aggregated engagement statistics")
+    engagement_stats: EngagementStatsType = Field(..., description="Aggregated engagement statistics")

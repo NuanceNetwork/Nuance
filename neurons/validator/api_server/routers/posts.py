@@ -29,7 +29,7 @@ router = APIRouter(
 
 @router.get("/{platform_type}/recent", response_model=list[PostVerificationResponse])
 async def get_recent_posts(
-    platform_type: str,
+    platform_type: models.PlatformType,
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     cutoff_date: str = None,
@@ -142,6 +142,8 @@ async def get_recent_posts(
                 )
             )
 
+            print(result[-1])
+
         paginated_result = result[skip : skip + limit]
 
         logger.debug(
@@ -159,7 +161,7 @@ async def get_recent_posts(
 
 @router.get("/{platform_type}/{post_id}", response_model=PostVerificationResponse)
 async def get_post(
-    platform_type: str,
+    platform_type: models.PlatformType,
     post_id: str,
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
@@ -202,7 +204,7 @@ async def get_post(
     response_model=list[InteractionResponse],
 )
 async def get_post_interactions(
-    platform_type: str,
+    platform_type: models.PlatformType,
     post_id: str,
     interaction_repo: Annotated[InteractionRepository, Depends(get_interaction_repo)],
     post_repo: Annotated[PostRepository, Depends(get_post_repo)],
