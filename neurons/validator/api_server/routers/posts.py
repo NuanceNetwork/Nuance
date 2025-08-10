@@ -127,6 +127,20 @@ async def get_recent_posts(
 
         result = []
         for post in result_posts:
+            if post.platform_type == "twitter":
+                user = post.extra_data.get("user", {})
+                if user:
+                    username = user.get("username", "")
+                    profile_pic_url = user.get("profile_image_url", "")
+                else:
+                    username = ""
+                    profile_pic_url = ""
+            else:
+                username = ""
+                profile_pic_url = ""
+
+        result = []
+        for post in result_posts:
             result.append(
                 PostVerificationResponse(
                     platform_type=post.platform_type,
@@ -138,6 +152,8 @@ async def get_recent_posts(
                     processing_note=post.processing_note,
                     interaction_count=interaction_count,
                     created_at=post.created_at,
+                    username=username,
+                    profile_pic_url=profile_pic_url,
                     stats=extract_post_stats(post) if include_stats else None
                 )
             )
