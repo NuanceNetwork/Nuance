@@ -34,7 +34,6 @@ def extract_twitter_interaction_stats(
 
 
 def extract_post_stats(post: Post) -> Optional[EngagementStats]:
-    # print(post.extra_data)
     if post.platform_type == PlatformType.TWITTER:
         return extract_twitter_post_stats(post)
     else:

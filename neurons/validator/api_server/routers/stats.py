@@ -264,6 +264,8 @@ async def get_subnet_stats(
             active_miners.add(account.node_hotkey)
 
     aggregated_engagement_stats = sum([extract_post_stats(post) for post in all_posts])
+    if not aggregated_engagement_stats:
+        aggregated_engagement_stats = None
 
     return SubnetStatsSummary(
         account_count=len(active_accounts),

@@ -156,4 +156,4 @@ class SubnetStatsSummary(BaseModel):
     account_count: int = Field(..., description="Number of verified social accounts")
     post_count: int = Field(..., description="Number of posts submitted")
     interaction_count: int = Field(..., description="Number of interactions received")
-    engagement_stats: EngagementStatsType = Field(..., description="Aggregated engagement statistics")
+    engagement_stats: Optional[EngagementStatsType] = Field(..., description="Aggregated engagement statistics")
