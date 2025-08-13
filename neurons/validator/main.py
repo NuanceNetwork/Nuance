@@ -140,9 +140,10 @@ class NuanceValidator:
                 )
                 await self.node_repository.upsert(node)
 
-                # Verify the account
-                account = None
                 account_verified = False
+
+                # Try to verify account with verification post
+                account = None
                 if verification_post_id:
                     node_uid = self.metagraph.hotkeys.index(node_hotkey)
                     commit = models.Commit(
@@ -155,13 +156,13 @@ class NuanceValidator:
                         verification_post_id=verification_post_id
                     )
                     account, error = await self.social.verify_account(commit, node)
-                    if not account:
+                    if account:
+                        account_verified = True
+                    else:
                         logger.warning(
-                            f"Account {commit.username} is not verified: {error}"
+                            f"Account {commit.username} is not verified: {error} with post {verification_post_id}"
                         )
-                        continue
                     
-                    account_verified = True
                     # Upsert account to database
                     await self.account_repository.upsert(account)
 
@@ -190,7 +191,7 @@ class NuanceValidator:
                             node_hotkey=node_hotkey,
                             node_netuid=settings.NETUID
                         )
-                        post, error = await self.social.verifiy_post(post_id, platform, node)
+                        post, error = await self.social.verifiy_post(post_id, platform, node, verification_post_id)
 
                         if not post:
                             logger.warning(
