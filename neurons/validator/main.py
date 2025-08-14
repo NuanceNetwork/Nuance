@@ -98,7 +98,7 @@ class NuanceValidator:
         self.workers = [
             asyncio.create_task(self.submission_server.serve()),
             asyncio.create_task(self.process_submissions()),
-            asyncio.create_task(self.content_discovering()),
+            # asyncio.create_task(self.content_discovering()),
             asyncio.create_task(self.post_processing()),
             asyncio.create_task(self.interaction_processing()),
             asyncio.create_task(self.score_aggregating()),
@@ -140,10 +140,9 @@ class NuanceValidator:
                 )
                 await self.node_repository.upsert(node)
 
-                account_verified = False
-
-                # Try to verify account with verification post
+                # Verify the account
                 account = None
+                account_verified = False
                 if verification_post_id:
                     node_uid = self.metagraph.hotkeys.index(node_hotkey)
                     commit = models.Commit(
@@ -156,21 +155,22 @@ class NuanceValidator:
                         verification_post_id=verification_post_id
                     )
                     account, error = await self.social.verify_account(commit, node)
-                    if account:
-                        account_verified = True
-                    else:
+                    print(account)
+                    if not account:
                         logger.warning(
-                            f"Account {commit.username} is not verified: {error} with post {verification_post_id}"
+                            f"Account {commit.username} is not verified: {error}"
                         )
+                        continue
                     
+                    account_verified = True
                     # Upsert account to database
                     await self.account_repository.upsert(account)
 
                 # Process post if provided
                 if post_id:
-                    # If account is verified, we process as normal
-                    if account_verified:
-                        post = existing_post = await self.post_repository.get_by(
+                    # If account is verified
+                    if account_verified:                        
+                        existing_post = await self.post_repository.get_by(
                             platform_type=platform,
                             post_id=post_id
                         )
@@ -180,9 +180,52 @@ class NuanceValidator:
                             post = await self.social.get_post(platform, post_id)
                             
                             if not post:
-                                logger.warning(f"Could not fetch post {post_id}")
+                                logger.warning(f"Could not fetch post {post_id}, skipping this")
+                                continue
                         else:
                             logger.debug(f"Post {post_id} already exists")
+                            post = existing_post
+                            post.social_account = await self.account_repository.get_by_platform_id(platform_type=post.platform_type, account_id=post.account_id)
+                            post = await self.social.get_post(platform, post_id)
+
+                        
+                        # Check if post is from verified account
+                        if (post.platform_type == account.platform_type and 
+                            post.account_id == account.account_id):
+                            # Post is from verified account, proceed normally
+                            logger.debug(f"Post {post_id} is from verified account {account.account_id}")
+                        else:
+                            # Post is from different account - verify ownership claim
+                            logger.info(
+                                f"Post {post_id} is from different account ({post.account_id}) "
+                                f"than verified account ({account.account_id}). Verifying ownership claim."
+                            )
+                            
+                            # Check if verification account username appears as hashtag at end of post content
+                            if not (account.account_username and 
+                                    post.content.lower().strip().endswith(f"#{account.account_username.lower()}")):
+                                logger.warning(
+                                    f"Verified account {account.account_id} cannot claim ownership "
+                                    f"of post {post_id}: verification username hashtag #{account.account_username} "
+                                    f"not found at end of post content"
+                                )
+                                continue
+                            
+                            # Verified account can claim this post - assign post's social account to hotkey
+                            post_social_account = post.social_account
+                            print(account, "!!!!!!!!!!!!!")
+                            print(post, "??????????????")
+                            print(type(post_social_account))
+                            print(type(account))
+                            post_social_account.node_hotkey = account.node_hotkey
+                            post_social_account.node_netuid = account.node_netuid
+                            await self.account_repository.upsert(post_social_account)
+                            
+                            logger.info(
+                                f"Verified account {account.account_id} successfully claimed "
+                                f"ownership of post {post_id} from account {post_social_account.account_id} "
+                                f"via hashtag verification"
+                            )
                     # If account is not verified, we verify the post itself and claim node 's ownership to the account
                     else:
                         if node_hotkey not in self.metagraph.hotkeys:
@@ -191,7 +234,7 @@ class NuanceValidator:
                             node_hotkey=node_hotkey,
                             node_netuid=settings.NETUID
                         )
-                        post, error = await self.social.verifiy_post(post_id, platform, node, verification_post_id)
+                        post, error = await self.social.verifiy_post(post_id, platform, node)
 
                         if not post:
                             logger.warning(
@@ -247,7 +290,6 @@ class NuanceValidator:
             except Exception:
                 logger.error(f"Error processing submission: {traceback.format_exc()}")
                 await asyncio.sleep(1)  # Brief pause on error
-
 
     async def content_discovering(self):
         """

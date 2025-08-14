@@ -205,85 +205,34 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 f"❌ Error verifying account {identifier} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
             return None, str(e)
-
+        
     async def verify_post(
         self,
         post_id: str,
         node: models.Node,
-        verification_post_id: Optional[models.Post],
     ):
-        post_verification_error_str = ""
-
-        raw_post = await self.platform.get_post(post_id)
-        post = _tweet_to_post(raw_post)
-        social_account = _twitter_user_to_social_account(
-            raw_post.get("user"), node=node
-        )
-        post.social_account = social_account
-
-        # Try to verify post with hashtag #Nuance123
         try:
-            # Post need to contain Nuance hashtag, e.g: Nuance123, with 123 match node 's current UID
-            pattern = re.compile(r"#Nuance(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])")
-            hashtag_match = pattern.search(post.content)
-            assert hashtag_match is not None, (
-                f"Tweet with ID: {post_id} does not contain hastag to verify!"
-            )
+            raw_post = await self.platform.get_post(post_id)
+            post = _tweet_to_post(raw_post)
+            social_account = _twitter_user_to_social_account(raw_post.get("user"), node=node)
 
+            # Post need to contain Nuance hashtag, e.g: Nuance123, with 123 match node 's current UID 
+            pattern = re.compile(r'#Nuance(25[0-5]|2[0-4][0-9]|1[0-9]{2}|[1-9]?[0-9])')
+            hashtag_match = pattern.search(post.content)
+            assert hashtag_match is not None, f"Tweet with ID: {post_id} does not contain hastag to verify!"
+            
             # Node UID must match its hotkey
             found_node_uid = int(hashtag_match.group(1))
             metagraph = await get_metagraph()
-            assert (
-                node.node_hotkey in metagraph.hotkeys
-                and found_node_uid == metagraph.hotkeys.index(node.node_hotkey)
-            ), (
-                f"UID found in tweet {post_id} 's hastag: {found_node_uid} does not match node 's UID in metagraph: {metagraph.hotkeys.index(node.node_hotkey)}!"
-            )
+            assert node.node_hotkey in metagraph.hotkeys and found_node_uid == metagraph.hotkeys.index(node.node_hotkey), f"UID found in tweet {post_id} 's hastag: {found_node_uid} does not match node 's UID in metagraph: {metagraph.hotkeys.index(node.node_hotkey)}!"
 
+            post.social_account = social_account
             return post, None
         except Exception as e:
-            logger.warning(
-                f"❌ Can't verify post {post_id} from hotkey {node.node_hotkey} with miner UID hashtag: {traceback.format_exc()}"
+            logger.error(
+                f"❌ Error verifying post {post_id} from hotkey {node.node_hotkey}: {traceback.format_exc()}"
             )
-            post_verification_error_str += f"{str(e)}\n"
-
-        # Try to verify post with verification post
-        if verification_post_id:
-            try:
-                raw_verification_post = await self.platform.get_post(verification_post_id)
-                verification_post = _tweet_to_post(raw_verification_post)
-                verification_social_account = _twitter_user_to_social_account(
-                    raw_verification_post.get("user"), node=node
-                )
-
-                # Check if miner's hotkey is in the verification post text
-                assert node.node_hotkey in verification_post.content
-                # Check if the verification post quotes or reply to any of Nuance 's account 's posts
-                interacted_post_id = (
-                    verification_post.extra_data["quoted_status_id"]
-                    or verification_post.extra_data["in_reply_to_status_id"]
-                )
-                assert interacted_post_id
-                interacted_post = await self.get_post(interacted_post_id)
-                assert (
-                    interacted_post.social_account.account_id
-                    == cst.NUANCE_SOCIAL_ACCOUNT_ID
-                )
-
-                # Verification post 's account username appear as a hashtag on the post (case insensitive)
-                assert (
-                    verification_social_account.account_username
-                    and post.content.lower().endswith(f"#{verification_social_account.account_username.lower()}")
-                )
-
-                return post, None
-            except Exception as e:
-                logger.error(
-                    f"❌ Can't verify post {post_id} from hotkey {node.node_hotkey} with verification post {verification_post_id}: {traceback.format_exc()}"
-                )
-                post_verification_error_str += f"{str(e)}\n"
-
-        return None, post_verification_error_str
+            return None, str(e)
 
 
 # Helper methods

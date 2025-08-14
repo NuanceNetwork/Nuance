@@ -78,7 +78,6 @@ class SocialContentProvider:
         post_id: str,
         platform: models.PlatformType,
         node: models.Node,
-        verification_post_id: Optional[models.Post] = None
     ) -> tuple[models.Post, Optional[str]]:
         """Verify a post on platform_type."""
         try:
@@ -86,8 +85,7 @@ class SocialContentProvider:
 
             post, error = await discovery.verify_post(
                 post_id=post_id,
-                node=node,
-                verification_post_id=verification_post_id
+                node=node
             )
             return post, error
         except Exception as e:

@@ -139,8 +139,6 @@ async def get_recent_posts(
                 username = ""
                 profile_pic_url = ""
 
-        result = []
-        for post in result_posts:
             result.append(
                 PostVerificationResponse(
                     platform_type=post.platform_type,
@@ -158,10 +156,7 @@ async def get_recent_posts(
                 )
             )
 
-            print(result[-1])
-
         paginated_result = result[skip : skip + limit]
-
         logger.debug(
             f"Returning {len(paginated_result)} posts after filtering for min {min_interactions} interactions"
         )
