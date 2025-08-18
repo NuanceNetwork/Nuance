@@ -22,7 +22,12 @@ from nuance.constitution import constitution_store
 from nuance.processing import ProcessingResult, PipelineFactory
 from nuance.social import SocialContentProvider
 from nuance.utils.logging import logger
-from nuance.utils.bittensor_utils import get_subtensor, get_wallet, get_metagraph, serve_axon_extrinsic
+from nuance.utils.bittensor_utils import (
+    get_subtensor,
+    get_wallet,
+    get_metagraph,
+    serve_axon_extrinsic,
+)
 from nuance.settings import settings
 
 from neurons.validator.scoring import ScoreCalculator
@@ -63,7 +68,7 @@ class NuanceValidator:
         self.subtensor = await get_subtensor()
         self.wallet = await get_wallet()
         self.metagraph = await get_metagraph()
-        
+
         # Check if validator is registered to chain
         if self.wallet.hotkey.ss58_address not in self.metagraph.hotkeys:
             logger.error(
@@ -82,7 +87,7 @@ class NuanceValidator:
             app=self.submission_app,
             host=settings.SUBMISSION_SERVER_HOST,
             port=settings.SUBMISSION_SERVER_PORT,
-            loop="none"
+            loop="none",
         )
         self.submission_server = uvicorn.Server(config)
         # Post IP to chain with bittensor 's serving axon
@@ -91,7 +96,7 @@ class NuanceValidator:
             wallet=self.wallet,
             netuid=settings.NETUID,
             external_port=settings.SUBMISSION_SERVER_EXTERNAL_PORT,
-            external_ip=settings.SUBMISSION_SERVER_PUBLIC_IP
+            external_ip=settings.SUBMISSION_SERVER_PUBLIC_IP,
         )
 
         # Start workers
@@ -105,7 +110,6 @@ class NuanceValidator:
         ]
 
         logger.info("Validator initialized successfully")
-
 
     async def process_submissions(self):
         while True:
@@ -132,12 +136,9 @@ class NuanceValidator:
                 if node_hotkey not in self.metagraph.hotkeys:
                     logger.warning(f"Node {node_hotkey} not in metagraph, skipping")
                     continue
-                
+
                 # Create/update node
-                node = models.Node(
-                    node_hotkey=node_hotkey,
-                    node_netuid=settings.NETUID
-                )
+                node = models.Node(node_hotkey=node_hotkey, node_netuid=settings.NETUID)
                 await self.node_repository.upsert(node)
 
                 # Verify the account
@@ -152,16 +153,15 @@ class NuanceValidator:
                         platform=platform,
                         account_id=account_id if account_id else None,
                         username=username if username else None,
-                        verification_post_id=verification_post_id
+                        verification_post_id=verification_post_id,
                     )
                     account, error = await self.social.verify_account(commit, node)
-                    print(account)
                     if not account:
                         logger.warning(
                             f"Account {commit.username} is not verified: {error}"
                         )
                         continue
-                    
+
                     account_verified = True
                     # Upsert account to database
                     await self.account_repository.upsert(account)
@@ -169,58 +169,67 @@ class NuanceValidator:
                 # Process post if provided
                 if post_id:
                     # If account is verified
-                    if account_verified:                        
+                    if account_verified:
                         existing_post = await self.post_repository.get_by(
-                            platform_type=platform,
-                            post_id=post_id
+                            platform_type=platform, post_id=post_id
                         )
-                        
+
                         if not existing_post:
                             # Fetch post using social provider
                             post = await self.social.get_post(platform, post_id)
-                            
+
                             if not post:
-                                logger.warning(f"Could not fetch post {post_id}, skipping this")
+                                logger.warning(
+                                    f"Could not fetch post {post_id}, skipping this"
+                                )
                                 continue
                         else:
                             logger.debug(f"Post {post_id} already exists")
                             post = existing_post
-                            post.social_account = await self.account_repository.get_by_platform_id(platform_type=post.platform_type, account_id=post.account_id)
+                            post.social_account = (
+                                await self.account_repository.get_by_platform_id(
+                                    platform_type=post.platform_type,
+                                    account_id=post.account_id,
+                                )
+                            )
                             post = await self.social.get_post(platform, post_id)
 
-                        
                         # Check if post is from verified account
-                        if (post.platform_type == account.platform_type and 
-                            post.account_id == account.account_id):
+                        if (
+                            post.platform_type == account.platform_type
+                            and post.account_id == account.account_id
+                        ):
                             # Post is from verified account, proceed normally
-                            logger.debug(f"Post {post_id} is from verified account {account.account_id}")
+                            logger.debug(
+                                f"Post {post_id} is from verified account {account.account_id}"
+                            )
                         else:
                             # Post is from different account - verify ownership claim
                             logger.info(
                                 f"Post {post_id} is from different account ({post.account_id}) "
                                 f"than verified account ({account.account_id}). Verifying ownership claim."
                             )
-                            
+
                             # Check if verification account username appears as hashtag at end of post content
-                            if not (account.account_username and 
-                                    post.content.lower().strip().endswith(f"#{account.account_username.lower()}")):
+                            if not (
+                                account.account_username
+                                and post.content.lower()
+                                .strip()
+                                .endswith(f"#{account.account_username.lower()}")
+                            ):
                                 logger.warning(
                                     f"Verified account {account.account_id} cannot claim ownership "
                                     f"of post {post_id}: verification username hashtag #{account.account_username} "
                                     f"not found at end of post content"
                                 )
                                 continue
-                            
+
                             # Verified account can claim this post - assign post's social account to hotkey
                             post_social_account = post.social_account
-                            print(account, "!!!!!!!!!!!!!")
-                            print(post, "??????????????")
-                            print(type(post_social_account))
-                            print(type(account))
                             post_social_account.node_hotkey = account.node_hotkey
                             post_social_account.node_netuid = account.node_netuid
                             await self.account_repository.upsert(post_social_account)
-                            
+
                             logger.info(
                                 f"Verified account {account.account_id} successfully claimed "
                                 f"ownership of post {post_id} from account {post_social_account.account_id} "
@@ -231,17 +240,18 @@ class NuanceValidator:
                         if node_hotkey not in self.metagraph.hotkeys:
                             continue
                         node = models.Node(
-                            node_hotkey=node_hotkey,
-                            node_netuid=settings.NETUID
+                            node_hotkey=node_hotkey, node_netuid=settings.NETUID
                         )
-                        post, error = await self.social.verifiy_post(post_id, platform, node)
+                        post, error = await self.social.verifiy_post(
+                            post_id, platform, node
+                        )
 
                         if not post:
                             logger.warning(
                                 f"Post {post_id} on platforn {platform} is not verified: {error}"
                             )
                             continue
-                        
+
                         account_verified = True
                         account = post.social_account
                         # Upsert account to database
@@ -255,18 +265,21 @@ class NuanceValidator:
                 if interaction_id:
                     # Double-check post_id exists (should be validated already)
                     if not post_id:
-                        logger.error(f"Interaction {interaction_id} submitted without post_id")
+                        logger.error(
+                            f"Interaction {interaction_id} submitted without post_id"
+                        )
                         continue
-                    
+
                     existing_interaction = await self.interaction_repository.get_by(
-                        platform_type=platform,
-                        interaction_id=interaction_id
+                        platform_type=platform, interaction_id=interaction_id
                     )
 
                     if not existing_interaction:
                         # Use the get_interaction API
-                        interaction = await self.social.get_interaction(platform, interaction_id)
-                        
+                        interaction = await self.social.get_interaction(
+                            platform, interaction_id
+                        )
+
                         if interaction:
                             # Verify the interaction is to the submitted post
                             if interaction.post_id != post_id:
@@ -275,7 +288,7 @@ class NuanceValidator:
                                     f"actual parent: {interaction.post_id}"
                                 )
                                 continue
-                            
+
                             # Queue for processing
                             await self.interaction_queue.put(interaction)
                             logger.info(
@@ -283,10 +296,12 @@ class NuanceValidator:
                                 f"({interaction.interaction_type}) to post {post_id}"
                             )
                         else:
-                            logger.warning(f"Could not fetch interaction {interaction_id}")
+                            logger.warning(
+                                f"Could not fetch interaction {interaction_id}"
+                            )
                     else:
                         logger.debug(f"Interaction {interaction_id} already exists")
-                        
+
             except Exception:
                 logger.error(f"Error processing submission: {traceback.format_exc()}")
                 await asyncio.sleep(1)  # Brief pause on error
@@ -313,7 +328,7 @@ class NuanceValidator:
                     )
                     # Upsert node to database
                     await self.node_repository.upsert(node)
-                    
+
                     # First verify the account
                     account, error = await self.social.verify_account(commit, node)
                     if not account:
@@ -321,7 +336,7 @@ class NuanceValidator:
                             f"Account {commit.username} is not verified: {error}"
                         )
                         continue
-                    
+
                     # Upsert account to database
                     await self.account_repository.upsert(account)
 
@@ -332,8 +347,7 @@ class NuanceValidator:
                     new_posts = []
                     for post in discovered_content["posts"]:
                         existing = await self.post_repository.get_by(
-                            platform_type=post.platform_type,
-                            post_id=post.post_id
+                            platform_type=post.platform_type, post_id=post.post_id
                         )
                         if not existing:
                             new_posts.append(post)
@@ -342,7 +356,7 @@ class NuanceValidator:
                     for interaction in discovered_content["interactions"]:
                         existing = await self.interaction_repository.get_by(
                             platform_type=interaction.platform_type,
-                            interaction_id=interaction.interaction_id
+                            interaction_id=interaction.interaction_id,
                         )
                         if not existing:
                             new_interactions.append(interaction)
@@ -387,7 +401,9 @@ class NuanceValidator:
                 post.processing_note = json.dumps(result.details)
 
                 if result.status != models.ProcessingStatus.ERROR:
-                    logger.info(f"Post {post.post_id} processed successfully with status {result.status}")
+                    logger.info(
+                        f"Post {post.post_id} processed successfully with status {result.status}"
+                    )
                     # Upsert post to database
                     await self.post_repository.upsert(post)
                     # Update cache with processed post
@@ -437,17 +453,23 @@ class NuanceValidator:
                 # If not in cache, try database
                 if not parent_post and post_id:
                     parent_post = await self.post_repository.get_by(
-                        platform_type=platform_type,
-                        post_id=post_id
+                        platform_type=platform_type, post_id=post_id
                     )
                     # Add to cache if found
                     if parent_post:
                         self.processed_posts_cache[post_id] = parent_post
 
-                if parent_post and parent_post.processing_status == models.ProcessingStatus.ACCEPTED:
+                if (
+                    parent_post
+                    and parent_post.processing_status
+                    == models.ProcessingStatus.ACCEPTED
+                ):
                     # Process the interaction
                     from nuance.processing.sentiment import InteractionPostContext
-                    result: ProcessingResult = await self.pipelines["interaction"].process(
+
+                    result: ProcessingResult = await self.pipelines[
+                        "interaction"
+                    ].process(
                         input_data=InteractionPostContext(
                             interaction=interaction,
                             parent_post=parent_post,
@@ -462,7 +484,9 @@ class NuanceValidator:
                             f"Interaction {interaction.interaction_id} processed successfully with status {result.status}"
                         )
                         # Upsert the interacted account to database
-                        await self.account_repository.upsert(interaction.social_account, exclude_none_updates=True)
+                        await self.account_repository.upsert(
+                            interaction.social_account, exclude_none_updates=True
+                        )
 
                         # Upsert the interaction to database
                         await self.interaction_repository.upsert(interaction)
@@ -471,20 +495,26 @@ class NuanceValidator:
                             f"Interaction {interaction.interaction_id} errored in processing: {result.processing_note}, put back in queue"
                         )
                         await self.interaction_queue.put(interaction)
-                elif parent_post and parent_post.processing_status == models.ProcessingStatus.REJECTED:
+                elif (
+                    parent_post
+                    and parent_post.processing_status
+                    == models.ProcessingStatus.REJECTED
+                ):
                     logger.info(
                         f"Post {post_id} rejected in processing: {parent_post.processing_note}, rejecting interaction {interaction.interaction_id}"
                     )
-                    
+
                     interaction.processing_status = models.ProcessingStatus.REJECTED
                     interaction.processing_note = "Parent post rejected"
-                    
+
                     # Upsert the interacted account to database
-                    await self.account_repository.upsert(interaction.social_account, exclude_none_updates=True)
-                    
+                    await self.account_repository.upsert(
+                        interaction.social_account, exclude_none_updates=True
+                    )
+
                     # Upsert the interaction to database
                     await self.interaction_repository.upsert(interaction)
-                    
+
                 else:
                     # Parent not processed yet, add to waiting list
                     logger.info(
@@ -523,7 +553,7 @@ class NuanceValidator:
                 recent_interactions = (
                     await self.interaction_repository.get_recent_interactions(
                         cutoff_date=cutoff_date,
-                        processing_status=models.ProcessingStatus.ACCEPTED
+                        processing_status=models.ProcessingStatus.ACCEPTED,
                     )
                 )
 
@@ -536,15 +566,13 @@ class NuanceValidator:
 
                 recent_posts = await self.post_repository.get_recent_posts(
                     cutoff_date=cutoff_date,
-                    processing_status=models.ProcessingStatus.ACCEPTED
+                    processing_status=models.ProcessingStatus.ACCEPTED,
                 )
 
                 if not recent_posts:
                     logger.info("No recent posts found for scoring")
-                
-                logger.info(
-                    f"Found {len(recent_posts)} recent posts for scoring"
-                )
+
+                logger.info(f"Found {len(recent_posts)} recent posts for scoring")
 
                 # 2. Calculate scores for all miners (use ScoreCalculator)
                 node_scores = await self.score_calculator.calculate_aggregated_scores(
@@ -553,7 +581,7 @@ class NuanceValidator:
                     cutoff_date=cutoff_date,
                     post_repository=self.post_repository,
                     account_repository=self.account_repository,
-                    node_repository=self.node_repository
+                    node_repository=self.node_repository,
                 )
 
                 # 3. Set weights for all nodes
@@ -561,45 +589,64 @@ class NuanceValidator:
                 owner_hotkey_index = self.metagraph.hotkeys.index(owner_hotkey)
 
                 # We create a score array for each category
-                categories_scores = {category: np.zeros(len(self.metagraph.hotkeys)) for category in list(constitution_topics.keys())}
+                categories_scores = {
+                    category: np.zeros(len(self.metagraph.hotkeys))
+                    for category in list(constitution_topics.keys())
+                }
                 for hotkey, scores in node_scores.items():
                     if hotkey in self.metagraph.hotkeys:
                         for category, score in scores.items():
                             if category in categories_scores:
-                                categories_scores[category][self.metagraph.hotkeys.index(hotkey)] = score
-                            
+                                categories_scores[category][
+                                    self.metagraph.hotkeys.index(hotkey)
+                                ] = score
+
                 # Normalize scores for each category
                 for category in categories_scores:
-                    categories_scores[category] = np.nan_to_num(categories_scores[category], 0)
+                    categories_scores[category] = np.nan_to_num(
+                        categories_scores[category], 0
+                    )
                     if np.sum(categories_scores[category]) > 0:
-                        categories_scores[category] = categories_scores[category] / np.sum(categories_scores[category])
+                        categories_scores[category] = categories_scores[
+                            category
+                        ] / np.sum(categories_scores[category])
                     else:
                         # If category has no score (no interaction) then we burn
-                        categories_scores[category] = np.zeros_like(categories_scores[category])
+                        categories_scores[category] = np.zeros_like(
+                            categories_scores[category]
+                        )
                         categories_scores[category][owner_hotkey_index] = 1.0
-                    
+
                     positive_score_uid = np.where(categories_scores[category] > 0)[0]
-                    logger.info(f"Weights of topic {category}: \n" + \
-                                f"Uids: {positive_score_uid} \n" + \
-                                f"Weights: {categories_scores[category][positive_score_uid]}"
-                                )
+                    logger.info(
+                        f"Weights of topic {category}: \n"
+                        + f"Uids: {positive_score_uid} \n"
+                        + f"Weights: {categories_scores[category][positive_score_uid]}"
+                    )
 
                 # Weighted sum of categories
                 scores = np.zeros(len(self.metagraph.hotkeys))
                 for category in categories_scores:
-                    scores += categories_scores[category] * constitution_topics.get(category, {}).get("weight", 0.0)
-                
+                    scores += categories_scores[category] * constitution_topics.get(
+                        category, {}
+                    ).get("weight", 0.0)
+
                 scores_weights = scores.tolist()
 
                 # Burn
                 alpha_burn_weights = [0.0] * len(self.metagraph.hotkeys)
-                logger.info(f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1")
+                logger.info(
+                    f"🔥 Burn alpha by setting weight for uid {owner_hotkey_index} - {owner_hotkey} (owner's hotkey): 1"
+                )
                 alpha_burn_weights[owner_hotkey_index] = 1
-                
+
                 # Combine weights
                 combined_weights = [
-                    (cst.ALPHA_BURN_RATIO * alpha_burn_weight) + ((1 - cst.ALPHA_BURN_RATIO) * score_weight)
-                    for alpha_burn_weight, score_weight in zip(alpha_burn_weights, scores_weights)
+                    (cst.ALPHA_BURN_RATIO * alpha_burn_weight)
+                    + ((1 - cst.ALPHA_BURN_RATIO) * score_weight)
+                    for alpha_burn_weight, score_weight in zip(
+                        alpha_burn_weights, scores_weights
+                    )
                 ]
 
                 logger.info(f"Weights: {combined_weights}")
@@ -618,7 +665,7 @@ class NuanceValidator:
             except Exception:
                 logger.error(f"Error in score aggregation: {traceback.format_exc()}")
                 await asyncio.sleep(10)  # Backoff on error
-                
+
 
 if __name__ == "__main__":
     validator = NuanceValidator()
