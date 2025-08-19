@@ -21,6 +21,16 @@ class Settings(BaseSettings):
         default="finney",
         description="Subtensor network to use.",
     )
+
+    # Logging settings
+    LOG_DIR: str = Field(
+        default="logs",
+        description="Directory to store log files."
+    )
+    LOG_FILENAME: str = Field(
+        default="logfile.log",
+        description="Log file name."
+    )
     
     # Bittensor
     WALLET_PATH: str = Field(default="~/.bittensor/wallets", description="Path to the Bittensor wallet.")

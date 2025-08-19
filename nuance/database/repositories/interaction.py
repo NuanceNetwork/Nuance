@@ -1,12 +1,11 @@
 # database/repositories/interaction.py
 import datetime
-from typing import Optional
 
 import sqlalchemy as sa
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from nuance.database.schema import Interaction as InteractionORM
-from nuance.models import Interaction, ProcessingStatus
+from nuance.models import Interaction
 from nuance.database.repositories.base import BaseRepository
 
 
@@ -26,7 +25,7 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
             created_at=orm_obj.created_at,
             extra_data=orm_obj.extra_data,
             processing_status=orm_obj.processing_status,
-            processing_note=orm_obj.processing_note
+            processing_note=orm_obj.processing_note,
         )
 
     @classmethod
@@ -41,7 +40,7 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
             created_at=domain_obj.created_at,
             extra_data=domain_obj.extra_data,
             processing_status=domain_obj.processing_status,
-            processing_note=domain_obj.processing_note
+            processing_note=domain_obj.processing_note,
         )
 
     async def get_recent_interactions(
@@ -58,13 +57,48 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
             List of processed interactions
         """
         async with self.session_factory() as session:
-            query = sa.select(InteractionORM).where(InteractionORM.created_at >= cutoff_date)
+            query = sa.select(InteractionORM).where(
+                InteractionORM.created_at >= cutoff_date
+            )
 
             # Apply additional filters
             for field, value in filters.items():
                 query = query.filter(getattr(InteractionORM, field) == value)
 
             # Order by created_at, newest first
+            query = query.order_by(InteractionORM.created_at.desc())
+
+            result = await session.execute(query)
+            orm_interactions = result.scalars().all()
+
+            return [self._orm_to_domain(obj) for obj in orm_interactions]
+
+    async def get_interactions_in_interval(
+        self,
+        start_time: datetime.datetime,
+        end_time: datetime.datetime,
+        **filters,
+    ) -> list[Interaction]:
+        """
+        Get interactions created between the specified start and end datetime.
+
+        Args:
+            start_time: Start of the datetime interval (inclusive).
+            end_time: End of the datetime interval (exclusive).
+            **filters: Optional additional filters (e.g., platform_type, interaction_type).
+
+        Returns:
+            List of Interaction domain objects sorted by creation date (newest first).
+        """
+        async with self.session_factory() as session:
+            query = sa.select(InteractionORM).where(
+                InteractionORM.created_at >= start_time,
+                InteractionORM.created_at < end_time,
+            )
+
+            for field, value in filters.items():
+                query = query.filter(getattr(InteractionORM, field) == value)
+
             query = query.order_by(InteractionORM.created_at.desc())
 
             result = await session.execute(query)
@@ -117,7 +151,7 @@ class InteractionRepository(BaseRepository[InteractionORM, Interaction]):
                         InteractionORM.interaction_id == entity.interaction_id,
                     ),
                     # This is the update part
-                    set_=update_dict
+                    set_=update_dict,
                 )
             )
 

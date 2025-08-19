@@ -82,6 +82,36 @@ class PostRepository(BaseRepository[PostORM, Post]):
 
             return [self._orm_to_domain(post) for post in orm_posts]
 
+    async def get_posts_in_interval(
+        self, start_time: datetime.datetime, end_time: datetime.datetime, **filters
+    ) -> list[Post]:
+        """
+        Get posts created between the specified start and end datetime.
+
+        Args:
+            start_time: Start of the datetime interval (inclusive).
+            end_time: End of the datetime interval (exclusive).
+            **filters: Optional additional filters (e.g., platform_type, account_id).
+
+        Returns:
+            List of Post domain objects sorted by creation date (newest first).
+        """
+        async with self.session_factory() as session:
+            query = sa.select(PostORM).where(
+                PostORM.created_at >= start_time,
+                PostORM.created_at < end_time,
+            )
+
+            for field, value in filters.items():
+                query = query.filter(getattr(PostORM, field) == value)
+
+            query = query.order_by(PostORM.created_at.desc())
+
+            result = await session.execute(query)
+            orm_posts = result.scalars().all()
+
+            return [self._orm_to_domain(post) for post in orm_posts]
+
     async def update_status(self, post_id: int, status: ProcessingStatus) -> bool:
         async with self.session_factory() as session:
             result = await session.execute(
