@@ -9,6 +9,8 @@ import requests
 from loguru import logger
 
 import nuance.constants as cst
+from nuance.settings import settings
+
 
 # Remove default loguru handler
 logger.remove()
@@ -16,12 +18,18 @@ logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 
 # Ensure the logs directory exists
-logs_dir = os.path.join(os.getcwd(), "logs")
+logs_dir = os.path.join(os.getcwd(), settings.LOG_DIR)
 os.makedirs(logs_dir, exist_ok=True)
 
 # Add the log file to the logger
-logger.add(os.path.join(logs_dir, "logfile.log"), level="DEBUG", rotation="10 MB", retention="10 days", compression="zip")
-
+log_filename = settings.LOG_FILENAME
+logger.add(
+    os.path.join(logs_dir, log_filename), 
+    level="DEBUG", 
+    rotation="10 MB", 
+    retention="10 days", 
+    compression="zip"
+)
 
 class LoguruHTTPHandler(logging.Handler):
     """HTTP log handler that works with standard QueueListener"""

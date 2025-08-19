@@ -24,11 +24,13 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
     async def get_post(self, post_id: str) -> models.Post:
         raw_post = await self.platform.get_post(post_id)
         return _tweet_to_post(raw_post, social_account=raw_post.get("user"))
-    
+
     async def get_interaction(self, interaction_id: str) -> models.Interaction:
         # We only support replies and quotes retweet at the moment and they are Tweets
         raw_interaction = await self.platform.get_post(interaction_id)
-        return _tweet_to_interaction(raw_interaction, social_account=raw_interaction.get("user"))
+        return _tweet_to_interaction(
+            raw_interaction, social_account=raw_interaction.get("user")
+        )
 
     async def discover_new_posts(self, username: str) -> list[models.Post]:
         try:
@@ -93,7 +95,9 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             for interaction in all_interactions:
                 interaction_id = interaction.interaction_id
                 # 1.1 Check if the interaction comes from a verified username using the CSV list using user id.
-                verified_users = await constitution_store.get_verified_users(platform=models.PlatformType.TWITTER)
+                verified_users = await constitution_store.get_verified_users(
+                    platform=models.PlatformType.TWITTER
+                )
                 verified_user_ids = set([user["id"] for user in verified_users])
                 if interaction.account_id not in verified_user_ids:
                     logger.info(
@@ -153,11 +157,11 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
             return {"posts": [], "interactions": []}
 
     async def verify_account(
-        self, 
-        username: Optional[str] = None, 
+        self,
+        username: Optional[str] = None,
         account_id: Optional[str] = None,
         verification_post_id: str = None,
-        node: models.Node = None
+        node: models.Node = None,
     ) -> tuple[models.SocialAccount, Optional[str]]:
         try:
             raw_verification_post = await self.platform.get_post(verification_post_id)
@@ -166,28 +170,34 @@ class TwitterDiscoveryStrategy(BaseDiscoveryStrategy[TwitterPlatform]):
                 raw_verification_post.get("user"), node=node
             )
             verification_post.social_account = social_account
-            
+
             assert username or account_id
             # Check if username is correct (if provided)
             if username:
                 assert verification_post.social_account.account_username == username, (
                     f"Username mismatch: {verification_post.social_account.account_username} != {username}"
                 )
-            
+
             # Check if account_id is correct (if provided)
             if account_id:
                 assert verification_post.social_account.account_id == account_id, (
                     f"Account ID mismatch: {verification_post.social_account.account_id} != {account_id}"
                 )
-                
+
             # Check if miner's hotkey is in the post text
             assert node.node_hotkey in verification_post.content
             # Check if the post quotes or reply to any of Nuance 's account 's posts
-            interacted_post_id = verification_post.extra_data["quoted_status_id"] or verification_post.extra_data["in_reply_to_status_id"]
+            interacted_post_id = (
+                verification_post.extra_data["quoted_status_id"]
+                or verification_post.extra_data["in_reply_to_status_id"]
+            )
             assert interacted_post_id
             interacted_post = await self.get_post(interacted_post_id)
-            assert interacted_post.social_account.account_id == cst.NUANCE_SOCIAL_ACCOUNT_ID
-            
+            assert (
+                interacted_post.social_account.account_id
+                == cst.NUANCE_SOCIAL_ACCOUNT_ID
+            )
+
             return verification_post.social_account, None
         except Exception as e:
             identifier = username or account_id or "unknown"
