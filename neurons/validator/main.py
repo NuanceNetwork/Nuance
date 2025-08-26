@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import json
 import traceback
+import re
 
 import bittensor as bt
 import numpy as np
@@ -210,17 +211,25 @@ class NuanceValidator:
                                 f"than verified account ({account.account_id}). Verifying ownership claim."
                             )
 
-                            # Check if verification account username appears as hashtag at end of post content
-                            if not (
-                                account.account_username
-                                and post.content.lower()
-                                .strip()
-                                .endswith(f"#{account.account_username.lower()}")
-                            ):
+                            # Check if verification account username appears as hashtag
+                            HASHTAG_PATTERN = re.compile(r"#([A-Za-z0-9_]{1,15})")
+                            def extract_hashtags(text: str) -> list[str]:
+                                """Extract all valid hashtags from text according to Twitter username rules and hashtag rules."""
+                                return [tag.lower() for tag in HASHTAG_PATTERN.findall(text or "")]
+                            
+                            hashtags = extract_hashtags(post.content)
+                            if not account.account_username:
+                                logger.warning(
+                                    f"Verified account {account.account_id} has no username set, "
+                                    f"cannot verify post {post_id}"
+                                )
+                                continue
+
+                            if account.account_username.lower() not in hashtags:
                                 logger.warning(
                                     f"Verified account {account.account_id} cannot claim ownership "
-                                    f"of post {post_id}: verification username hashtag #{account.account_username} "
-                                    f"not found at end of post content"
+                                    f"of post {post_id}: verification hashtag #{account.account_username} "
+                                    f"not found in post content"
                                 )
                                 continue
 

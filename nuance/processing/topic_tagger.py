@@ -56,8 +56,7 @@ class TopicTagger(Processor):
                 try:
                     is_quote_tweet = post.extra_data.get("is_quote_tweet", False)
                     quoted_user_id = post.extra_data.get("quote", {}).get("user", {}).get("id")
-                    has_keyword = "NuanceOverNoise" in post.content
-                    if is_quote_tweet and quoted_user_id == cst.NUANCE_SOCIAL_ACCOUNT_ID and has_keyword:
+                    if is_quote_tweet and quoted_user_id == cst.NUANCE_SOCIAL_ACCOUNT_ID:
                         identified_topics.append("nuance-sharing")
                 except Exception:
                     pass
