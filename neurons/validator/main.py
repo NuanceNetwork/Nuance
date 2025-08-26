@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import json
 import traceback
+import re
 
 import bittensor as bt
 import numpy as np
@@ -210,17 +211,33 @@ class NuanceValidator:
                                 f"than verified account ({account.account_id}). Verifying ownership claim."
                             )
 
-                            # Check if verification account username appears as hashtag at end of post content
-                            if not (
-                                account.account_username
-                                and post.content.lower()
-                                .strip()
-                                .endswith(f"#{account.account_username.lower()}")
-                            ):
+                            # Check if verification account username appears as hashtag
+                            NUANCE_PATTERN = re.compile(r"\bnuance([A-Za-z0-9_]{1,15})", flags=re.IGNORECASE)
+
+                            def extract_nuance_usernames(text: str) -> list[str]:
+                                """
+                                Extract usernames from 'NuanceUsername' markers in the text.
+                                - 'Nuance' prefix is case-insensitive.
+                                - Usernames must match Twitter's username rules.
+                                - Returned usernames are normalized to lowercase.
+                                """
+                                if not text:
+                                    return []
+                                return [match.lower() for match in NUANCE_PATTERN.findall(text)]
+                            
+                            nuance_usernames_found= extract_nuance_usernames(post.content)
+                            if not account.account_username:
+                                logger.warning(
+                                    f"Verified account {account.account_id} has no username set, "
+                                    f"cannot verify post {post_id}"
+                                )
+                                continue
+
+                            if account.account_username.lower() not in nuance_usernames_found:
                                 logger.warning(
                                     f"Verified account {account.account_id} cannot claim ownership "
-                                    f"of post {post_id}: verification username hashtag #{account.account_username} "
-                                    f"not found at end of post content"
+                                    f"of post {post_id}: verification hashtag #{account.account_username} "
+                                    f"not found in post content"
                                 )
                                 continue
 
