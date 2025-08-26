@@ -212,12 +212,20 @@ class NuanceValidator:
                             )
 
                             # Check if verification account username appears as hashtag
-                            HASHTAG_PATTERN = re.compile(r"#([A-Za-z0-9_]{1,15})")
-                            def extract_hashtags(text: str) -> list[str]:
-                                """Extract all valid hashtags from text according to Twitter username rules and hashtag rules."""
-                                return [tag.lower() for tag in HASHTAG_PATTERN.findall(text or "")]
+                            NUANCE_PATTERN = re.compile(r"\bnuance([A-Za-z0-9_]{1,15})", flags=re.IGNORECASE)
+
+                            def extract_nuance_usernames(text: str) -> list[str]:
+                                """
+                                Extract usernames from 'NuanceUsername' markers in the text.
+                                - 'Nuance' prefix is case-insensitive.
+                                - Usernames must match Twitter's username rules.
+                                - Returned usernames are normalized to lowercase.
+                                """
+                                if not text:
+                                    return []
+                                return [match.lower() for match in NUANCE_PATTERN.findall(text)]
                             
-                            hashtags = extract_hashtags(post.content)
+                            nuance_usernames_found= extract_nuance_usernames(post.content)
                             if not account.account_username:
                                 logger.warning(
                                     f"Verified account {account.account_id} has no username set, "
@@ -225,7 +233,7 @@ class NuanceValidator:
                                 )
                                 continue
 
-                            if account.account_username.lower() not in hashtags:
+                            if account.account_username.lower() not in nuance_usernames_found:
                                 logger.warning(
                                     f"Verified account {account.account_id} cannot claim ownership "
                                     f"of post {post_id}: verification hashtag #{account.account_username} "
