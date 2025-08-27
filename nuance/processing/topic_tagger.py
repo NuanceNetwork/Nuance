@@ -50,7 +50,7 @@ class TopicTagger(Processor):
                 else:
                     logger.debug(f"🚫 Post {post_id} is not about {topic}")
 
-            # Special handling for "nuance-sharing" topic
+            # Special handling for "nuance_sharing" topic
             # This post QRT a post from Nuance subnet 's X account and contain the "NuanceOverNoise" keyword
             if post.platform_type == models.PlatformType.TWITTER:
                 try:
@@ -58,7 +58,7 @@ class TopicTagger(Processor):
                     quoted_user_id = post.extra_data.get("quote", {}).get("user", {}).get("id")
                     has_keyword = "NuanceOverNoise" in post.content
                     if is_quote_tweet and quoted_user_id == cst.NUANCE_SOCIAL_ACCOUNT_ID and has_keyword:
-                        identified_topics.append("nuance-sharing")
+                        identified_topics.append("nuance_sharing")
                 except Exception:
                     pass
             
