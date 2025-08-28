@@ -51,7 +51,7 @@ class TopicTagger(Processor):
                     logger.debug(f"🚫 Post {post_id} is not about {topic}")
 
             # Special handling for "nuance_sharing" topic
-            # This post QRT a post from Nuance subnet 's X account and contain the "NuanceOverNoise" keyword
+            # This post QRT a post from Nuance subnet 's X account
             if post.platform_type == models.PlatformType.TWITTER:
                 try:
                     is_quote_tweet = post.extra_data.get("is_quote_tweet", False)
