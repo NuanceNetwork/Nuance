@@ -4,12 +4,18 @@ from nuance.utils.logging import logger
 from nuance.processing.base import Processor, ProcessingResult
 from nuance.processing.llm import query_llm, strip_thinking
 from nuance.constitution import constitution_store
+from nuance.social.discovery.twitter import TwitterDiscoveryStrategy
 
 
 class TopicTagger(Processor):
     """Tags content with relevant topics using LLM."""
     
     processor_name = "topic_tagger"
+
+    def __init__(self):
+        super().__init__()
+        # Initialize Twitter discovery strategy once
+        self._twitter_discovery = TwitterDiscoveryStrategy()
     
     async def process(self, input_data: models.Post) -> ProcessingResult[models.Post]:
         """
@@ -55,11 +61,20 @@ class TopicTagger(Processor):
             if post.platform_type == models.PlatformType.TWITTER:
                 try:
                     is_quote_tweet = post.extra_data.get("is_quote_tweet", False)
-                    quoted_user_id = post.extra_data.get("quote", {}).get("user", {}).get("id")
-                    if is_quote_tweet and quoted_user_id == cst.NUANCE_SOCIAL_ACCOUNT_ID:
-                        identified_topics.append("nuance_sharing")
-                except Exception:
-                    pass
+                    if is_quote_tweet:
+                        quoted_status_id = post.extra_data.get("quoted_status_id")
+                        if quoted_status_id:
+                            logger.debug(f"🔍 Post {post_id} is quote tweet, quoted_status_id: {quoted_status_id}")
+
+                            # Fetch the quoted post to check if it's from Nuance account
+                            quoted_post = await self._twitter_discovery.get_post(quoted_status_id)
+
+                            if quoted_post.account_id == cst.NUANCE_SOCIAL_ACCOUNT_ID:
+                                identified_topics.append("nuance_sharing")
+                                logger.info(f"✅ Post {post_id} tagged with 'nuance_sharing' - quotes Nuance account post {quoted_status_id}")
+                                
+                except Exception as e:
+                    logger.warning(f"⚠️ Error checking nuance_sharing for post {post_id}: {str(e)}")
             
             # Update data with identified topics
             post.topics = identified_topics
