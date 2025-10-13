@@ -126,7 +126,7 @@ class ScoreCalculator:
         # Base type weights
         # One post have same base score as one QRT
         base_score = (
-            models.INTERACTION_TYPE_WEIGHTS.get(models.InteractionType.QUOTE)
+            1.0
             * post_base_score
         )
 
@@ -597,113 +597,6 @@ class ScoreCalculator:
             except Exception:
                 logger.error(
                     f"Error scoring post {post.post_id}: {traceback.format_exc()}"
-                )
-
-        return node_scores
-
-    # deprecated
-    async def aggregate_interaction_scores(
-        self,
-        recent_interactions: list[models.Interaction],
-        cutoff_date: datetime.datetime,
-        post_repository: PostRepository,
-        account_repository: SocialAccountRepository,
-        node_repository: NodeRepository,
-    ) -> dict[str, dict[str, float]]:
-        """
-        Process a list of interactions and return aggregated node scores.
-
-        Args:
-            recent_interactions: List of interactions to process
-            cutoff_date: Cutoff date for scoring
-            repositories: Database repositories for lookups
-
-        Returns:
-            dict: {hotkey: {category: score}}
-        """
-        node_scores: dict[str, dict[str, float]] = {}  # {hotkey: {category: score}}
-        interaction_count_by_account: dict[str, int] = {}  # {account_id: count}
-
-        # Count interactions by account
-        for interaction in recent_interactions:
-            interaction_count_by_account[interaction.account_id] = (
-                interaction_count_by_account.get(interaction.account_id, 0) + 1
-            )
-
-        # Process each interaction
-        for interaction in recent_interactions:
-            try:
-                # Get the post being interacted with
-                post = await post_repository.get_by(
-                    platform_type=interaction.platform_type, post_id=interaction.post_id
-                )
-                if not post:
-                    logger.warning(
-                        f"Post not found for interaction {interaction.interaction_id}"
-                    )
-                    continue
-                elif post.processing_status != models.ProcessingStatus.ACCEPTED:
-                    logger.warning(
-                        f"Post {post.post_id} is not accepted for interaction {interaction.interaction_id}"
-                    )
-                    continue
-
-                interaction.post = post
-
-                # Get the account that made the post (miner's account)
-                post_account = await account_repository.get_by_platform_id(
-                    post.platform_type, post.account_id
-                )
-                if not post_account:
-                    logger.warning(f"Account not found for post {post.post_id}")
-                    continue
-
-                # Get the account that made the interaction
-                interaction_account = await account_repository.get_by_platform_id(
-                    interaction.platform_type, interaction.account_id
-                )
-                if not interaction_account:
-                    logger.warning(
-                        f"Account not found for interaction {interaction.interaction_id}"
-                    )
-                    continue
-                interaction.social_account = interaction_account
-
-                # Get the node that owns the account
-                node = await node_repository.get_by_hotkey_netuid(
-                    post_account.node_hotkey, settings.NETUID
-                )
-                if not node:
-                    logger.warning(
-                        f"Node not found for account {post_account.account_id}"
-                    )
-                    continue
-
-                # Get node (miner) for scoring
-                miner_hotkey = node.node_hotkey
-
-                # Calculate score for this interaction
-                interaction_scores = await self.calculate_interaction_score(
-                    interaction=interaction,
-                    cutoff_date=cutoff_date,
-                    interaction_base_score=2.0
-                    / interaction_count_by_account[interaction.account_id],
-                )
-
-                if not interaction_scores:
-                    continue
-
-                # Add to node's score
-                if miner_hotkey not in node_scores:
-                    node_scores[miner_hotkey] = {}
-                for category, score in interaction_scores.items():
-                    if category not in node_scores[miner_hotkey]:
-                        node_scores[miner_hotkey][category] = 0.0
-                    node_scores[miner_hotkey][category] += score
-
-            except Exception as e:
-                logger.error(
-                    f"Error scoring interaction {interaction.interaction_id}: {e}"
                 )
 
         return node_scores

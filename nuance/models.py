@@ -23,7 +23,7 @@ class InteractionType(str, Enum):
 
 INTERACTION_TYPE_WEIGHTS = {
     InteractionType.REPLY: 0.0,
-    InteractionType.QUOTE: 6.0,
+    InteractionType.QUOTE: 0.0,
 }
 
 class Commit(BaseModel):
