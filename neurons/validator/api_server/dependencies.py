@@ -42,6 +42,26 @@ def get_nuance_checker() -> Callable[[str], Awaitable[bool]]:
     
     return nuance_checker
 
+# Dependency for QualityAssessor
+@lru_cache(maxsize=1)
+def get_quality_assessor() -> Callable[[str], Awaitable[bool]]:
+    
+    async def quality_assessor(content: str) -> bool:
+        # Get quality assessing prompt
+        quality_assessing_prompt = await constitution_store.get_quality_assessing_prompt()
+
+        # Format the prompt with the post content
+        quality_assessing_prompt = quality_assessing_prompt.format(tweet_text=content)
+        
+        # Call LLM to assess quality
+        llm_response = strip_thinking(await query_llm(prompt=quality_assessing_prompt, temperature=0.0))
+        
+        # Check if the post is a quality post
+        is_quality_post = llm_response.strip().lower() == "approve"
+        return is_quality_post
+    
+    return quality_assessor
+
 # Dependency for TopicChecker
 @lru_cache(maxsize=1)
 def get_topic_checker() -> Callable[[str, str], Awaitable[bool]]:
