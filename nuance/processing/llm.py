@@ -78,21 +78,27 @@ class LLMService:
         max_tokens: int,
         temperature: float,
         top_p: float,
-        keypair=None
+        keypair=None,
     ) -> str:
         """
         Call the LLM API.
         """
         url = "https://llm.chutes.ai/v1/chat/completions"
-        
+
         headers = {
             "Authorization": f"Bearer {settings.CHUTES_API_KEY}",
             "Content-Type": "application/json",
         }
 
+        messages = []
+        if model == "Qwen/Qwen3-8B":
+            # Use no-think mode for Qwen3
+            messages.append({"role": "system", "content": "/no_think"})
+        messages.append({"role": "user", "content": prompt})
+
         payload = {
             "model": model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": messages,
             "stream": False,
             "max_tokens": max_tokens,
             "temperature": temperature,
@@ -117,12 +123,12 @@ async def query_llm(
     max_tokens: int = 1024,
     temperature: float = 0.0,
     top_p: float = 0.5,
-    keypair=None  # Optional keypair parameter
+    keypair=None,  # Optional keypair parameter
 ) -> str:
     # Get wallet if not provided
     if not keypair:
         keypair = (await get_wallet()).hotkey
-    
+
     service = await LLMService.get_instance()
     return await service.query(
         prompt=prompt,
@@ -130,7 +136,7 @@ async def query_llm(
         max_tokens=max_tokens,
         temperature=temperature,
         top_p=top_p,
-        keypair=keypair
+        keypair=keypair,
     )
 
 
@@ -139,6 +145,7 @@ def strip_thinking(text: str) -> str:
     Removes <think>...</think> sections from model output.
     """
     return re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL).strip()
-    
+
+
 if __name__ == "__main__":
     print(asyncio.run(query_llm("Hello, world!")))

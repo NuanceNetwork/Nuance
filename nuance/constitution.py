@@ -116,6 +116,13 @@ class ConstitutionStore:
             logger.error(f"❌ Failed to get nuance prompt: {traceback.format_exc()}")
             return None
         
+    async def get_quality_assessing_prompt(self) -> Optional[str]:
+        try:
+            return await self._fetch_raw_content_from_relative_path("post_quality_assessing_prompt.txt")
+        except Exception:
+            logger.error(f"❌ Failed to get nuance prompt: {traceback.format_exc()}")
+            return None
+        
     async def get_topic_prompts(self) -> dict[str, str]:
         """Get topic-specific prompts based on config"""
         try:

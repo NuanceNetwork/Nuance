@@ -23,7 +23,7 @@ class InteractionType(str, Enum):
 
 INTERACTION_TYPE_WEIGHTS = {
     InteractionType.REPLY: 0.0,
-    InteractionType.QUOTE: 6.0,
+    InteractionType.QUOTE: 0.0,
 }
 
 class Commit(BaseModel):
@@ -57,7 +57,7 @@ class SocialAccount(BaseModel):
     node_netuid: Optional[int] = None
     created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default={},
+        default_factory=dict,
         description="Extra data for the social account, come from platform 's object model",
     )
 
@@ -76,12 +76,12 @@ class Post(BaseModel):
         description="Content of the post, this is now the text of the post",
     )
     topics: list[str] = Field(
-        default=[],
+        default_factory=list,
         description="The topics that the post is about, come from the topic tagging process",
     )
     created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default={},
+        default_factory=dict,
         description="Extra data for the post, come from platform 's object model",
     )
     processing_status: ProcessingStatus = ProcessingStatus.NEW
@@ -106,7 +106,7 @@ class Interaction(BaseModel):
     content: Optional[str] = None
     created_at: datetime.datetime
     extra_data: dict[str, Any] = Field(
-        default={},
+        default_factory=dict,
         description="Extra data for the interaction, come from platform 's object model",
     )
     processing_status: ProcessingStatus = ProcessingStatus.NEW

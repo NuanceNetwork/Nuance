@@ -3,6 +3,7 @@ from typing import Any, Optional, Type
 from nuance.processing.base import Processor, ProcessingResult
 from nuance.models import ProcessingStatus
 from nuance.processing.nuance_check import NuanceChecker
+from nuance.processing.quality_assessing import QualityAssessor
 from nuance.processing.topic_tagger import TopicTagger
 from nuance.processing.sentiment import SentimentAnalyzer
 
@@ -101,6 +102,9 @@ class Pipeline:
             # Break if the result is rejected
             if result.status == ProcessingStatus.REJECTED:
                 break
+            # Break if errored
+            if result.status == ProcessingStatus.ERROR:
+                break
             
         final_result = result
         final_result.details = processing_details
@@ -115,6 +119,7 @@ class PipelineFactory:
         """Create pipeline for processing posts."""
         pipeline = Pipeline()
         pipeline.register(NuanceChecker())
+        pipeline.register(QualityAssessor())
         pipeline.register(TopicTagger())
         return pipeline
     

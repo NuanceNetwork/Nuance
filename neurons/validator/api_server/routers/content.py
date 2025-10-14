@@ -4,6 +4,7 @@ from fastapi import APIRouter, Body, Depends, Request
 
 from neurons.validator.api_server.dependencies import (
     get_nuance_checker,
+    get_quality_assessor,
     get_topic_checker,
 )
 from neurons.validator.api_server.rate_limiter import limiter
@@ -28,6 +29,23 @@ async def check_nuance(
     is_nuanced = await nuance_checker(content)
 
     return is_nuanced
+
+
+@router.post("/post-quality/check", response_model=bool)
+@limiter.limit("2/minute")
+async def check_post_quality(
+    request: Request,
+    content: Annotated[str, Body(..., embed=True)],
+    quality_assessor: Annotated[
+        Callable[[str], Awaitable[bool]], Depends(get_quality_assessor)
+    ],
+):
+    """
+    Check text against post quality criteria (rate-limited to 2 requests per minute)
+    """
+    is_quality_post = await quality_assessor(content)
+
+    return is_quality_post
 
 
 @router.post("/topic/check", response_model=dict)
