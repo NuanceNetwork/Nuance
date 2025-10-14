@@ -48,7 +48,7 @@ class QualityAssessor(Processor):
                     details={"quality_assessment": "approved", "llm_response": llm_response}
                 )
             else:
-                logger.info(f"✅ Post {post_id} is not good quality")
+                logger.info(f"⚠️ Post {post_id} is not good quality")
                 return ProcessingResult(
                     status=models.ProcessingStatus.ACCEPTED,
                     output=post, 
