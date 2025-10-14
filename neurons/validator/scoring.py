@@ -323,7 +323,7 @@ class ScoreCalculator:
                 post_scores = await self.calculate_post_score(
                     post=post,
                     cutoff_date=cutoff_date,
-                    post_base_score=base_score_for_account[post.account_id],
+                    post_base_score=post_base_score,
                 )
 
                 if not post_scores:
@@ -591,7 +591,7 @@ class ScoreCalculator:
                 post_scores = await self.calculate_post_score(
                     post=post,
                     cutoff_date=cutoff_date,
-                    post_base_score=base_score_for_account[post.account_id],
+                    post_base_score=post_base_score,
                 )
 
                 if not post_scores:
