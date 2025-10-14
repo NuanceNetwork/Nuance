@@ -124,7 +124,6 @@ class ScoreCalculator:
             return None
 
         # Base type weights
-        # One post have same base score as one QRT
         base_score = (
             1.0
             * post_base_score
@@ -225,6 +224,7 @@ class ScoreCalculator:
             base_score_for_account[account_id] = score
 
         # Process interactions
+        # Interaction currently give 0 score
         for interaction in recent_interactions:
             try:
                 post = await post_repository.get_by(
@@ -314,6 +314,11 @@ class ScoreCalculator:
                         f"Node not found for account {post_account.account_id}"
                     )
                     continue
+                
+                post_base_score = base_score_for_account[post.account_id]
+                if post.extra_data.get("is_quality_post"):
+                    # Quality post get 50% bonus
+                    post_base_score *= 1.5
 
                 post_scores = await self.calculate_post_score(
                     post=post,
@@ -482,6 +487,7 @@ class ScoreCalculator:
             base_score_for_account[account_id] = score
 
         # Process each interaction
+        # Interaction currently give 0 score
         for interaction in recent_interactions:
             try:
                 # Get the post being interacted with
@@ -575,6 +581,11 @@ class ScoreCalculator:
                         f"Node not found for account {post_account.account_id}"
                     )
                     continue
+                
+                post_base_score = base_score_for_account[post.account_id]
+                if post.extra_data.get("is_quality_post"):
+                    # Quality post get 50% bonus
+                    post_base_score *= 1.5
 
                 # Calculate score for this post
                 post_scores = await self.calculate_post_score(
