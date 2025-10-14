@@ -102,6 +102,9 @@ class Pipeline:
             # Break if the result is rejected
             if result.status == ProcessingStatus.REJECTED:
                 break
+            # Break if errored
+            if result.status == ProcessingStatus.ERROR:
+                break
             
         final_result = result
         final_result.details = processing_details
