@@ -35,7 +35,7 @@ class LLMService:
 
     async def _initialize(self, model_name: Optional[str] = None):
         """Initialize the LLM service."""
-        self.model_name = model_name or "Qwen/Qwen3-8B"
+        self.model_name = model_name or "unsloth/gemma-3-12b-it"
         logger.info(f"LLM Service initialized with model: {self.model_name}")
 
     async def query(
@@ -91,7 +91,7 @@ class LLMService:
         }
 
         messages = []
-        if model == "Qwen/Qwen3-8B":
+        if model == "unsloth/gemma-3-12b-it":
             # Use no-think mode for Qwen3
             messages.append({"role": "system", "content": "/no_think"})
         messages.append({"role": "user", "content": prompt})
